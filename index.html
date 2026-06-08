@@ -1047,6 +1047,7 @@ function onCrit(el) {
   el.classList.toggle('on');
   el.closest('tr').className=state[cat][i].crit?'rc':'rn';
   saveCritLocal();
+  if (currentRole === 'manager') syncSettingsToSheets();
 }
 function refreshRow(cat,i) {
   const it=(items[cat]||[])[i]; if(!it) return;
@@ -1207,11 +1208,11 @@ async function loadFromSheets() {
         }
       });
       const cats=ROLE_CATS[currentRole]||[];
-      loadThreshLocal();
-      loadCritLocal();
       cats.forEach(c=>renderTable(c));
       updateSummary(); buildPurchaseList();
       setSyncPill('ok','✓ Данные загружены');
+      // Load settings (norms+crit) from Sheets
+      loadSettingsFromSheets();
       // Backup to localStorage
       try { localStorage.setItem('bv_state_backup', JSON.stringify({state, date: d.date, who: d.who, wish: d.wish})); } catch(e) {}
     } else setSyncPill('ok','Готово');
@@ -1323,12 +1324,16 @@ function saveAllNorms() {
   });
   saveThreshLocal();
   saveCritLocal();
+  syncSettingsToSheets();
   // Visual feedback
   const btn = document.getElementById('btn-save-norms');
   if (btn) {
     const orig = btn.textContent;
-    btn.textContent = '✓ Нормы сохранены!';
-    setTimeout(() => btn.textContent = orig, 2000);
+    btn.textContent = '✓ Сохраняю в Sheets...';
+    syncSettingsToSheets().then(() => {
+      btn.textContent = '✓ Нормы сохранены в Sheets!';
+      setTimeout(() => btn.textContent = orig, 2500);
+    });
   }
 }
 
@@ -1341,10 +1346,62 @@ function saveCritLocal() {
   Object.keys(state).forEach(cat => {
     critMap[cat] = {};
     Object.keys(state[cat]).forEach(i => {
-      if (state[cat][i].crit !== undefined) critMap[cat][i] = state[cat][i].crit;
+      if (state[cat][i] && state[cat][i].crit !== undefined) critMap[cat][i] = state[cat][i].crit;
     });
   });
   try { localStorage.setItem('bv_crit_v1', JSON.stringify(critMap)); } catch(e) {}
+}
+
+async function syncSettingsToSheets() {
+  if (!SCRIPT_URL) return;
+  try {
+    const critMap = {};
+    Object.keys(state).forEach(cat => {
+      critMap[cat] = {};
+      Object.keys(state[cat]).forEach(i => {
+        if (state[cat][i] && state[cat][i].crit !== undefined) critMap[cat][i] = state[cat][i].crit;
+      });
+    });
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'action=setSettings&data=' + encodeURIComponent(JSON.stringify({thresh, crit: critMap}))
+    });
+  } catch(e) {}
+}
+
+async function loadSettingsFromSheets() {
+  if (!SCRIPT_URL) return;
+  try {
+    const r = await fetch(SCRIPT_URL + '?action=getSettings');
+    const d = await r.json();
+    if (d.status === 'ok') {
+      // Load thresh
+      if (d.thresh && Object.keys(d.thresh).length) {
+        Object.keys(d.thresh).forEach(cat => {
+          if (!thresh[cat]) thresh[cat] = {};
+          Object.keys(d.thresh[cat]).forEach(i => {
+            thresh[cat][i] = {...(thresh[cat][i]||{}), ...d.thresh[cat][i]};
+          });
+        });
+        try { localStorage.setItem('bv_thresh_v1', JSON.stringify(thresh)); } catch(e) {}
+      }
+      // Load crit
+      if (d.crit && Object.keys(d.crit).length) {
+        Object.keys(d.crit).forEach(cat => {
+          if (!state[cat]) return;
+          Object.keys(d.crit[cat]).forEach(i => {
+            if (state[cat][i]) state[cat][i].crit = d.crit[cat][i];
+          });
+        });
+        try { localStorage.setItem('bv_crit_v1', JSON.stringify(d.crit)); } catch(e) {}
+      }
+      // Re-render tables
+      const cats = ROLE_CATS[currentRole] || [];
+      cats.forEach(c => renderTable(c));
+      updateSummary(); buildPurchaseList();
+    }
+  } catch(e) {}
 }
 
 function loadCritLocal() {
