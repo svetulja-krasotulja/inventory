@@ -384,7 +384,9 @@ tr:hover td{background:#FAFAF8}
             <label class="sup-cat-check"><input type="checkbox" value="Рабочая одежда"> Рабочая одежда</label>
             <label class="sup-cat-check"><input type="checkbox" value="Дизайн"> Дизайн</label>
             <label class="sup-cat-check"><input type="checkbox" value="Прочие"> Прочие</label>
+            <label class="sup-cat-check"><input type="checkbox" value="__other__" id="sf-cat-other-check" onchange="toggleCatOther(this)"> Другое</label>
           </div>
+          <input class="sup-form-input" id="sf-cat-other-text" placeholder="Введи категорию..." style="display:none;margin-top:4px">
         </div>
       </div>
       <div class="sup-form-row">
@@ -436,13 +438,17 @@ tr:hover td{background:#FAFAF8}
         <div id="sf-order-methods" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0">
           <label class="sup-cat-check"><input type="checkbox" value="Через сайт"> Через сайт</label>
           <label class="sup-cat-check"><input type="checkbox" value="Звонок"> Звонок</label>
+          <label class="sup-cat-check"><input type="checkbox" value="SMS"> SMS</label>
           <label class="sup-cat-check"><input type="checkbox" value="WhatsApp"> WhatsApp</label>
+          <label class="sup-cat-check"><input type="checkbox" value="Viber"> Viber</label>
           <label class="sup-cat-check"><input type="checkbox" value="Telegram"> Telegram</label>
           <label class="sup-cat-check"><input type="checkbox" value="Email"> Email</label>
           <label class="sup-cat-check"><input type="checkbox" value="Самовывоз"> Самовывоз</label>
           <label class="sup-cat-check"><input type="checkbox" value="Доставка по заявке"> Доставка по заявке</label>
           <label class="sup-cat-check"><input type="checkbox" value="Приложение"> Приложение</label>
+          <label class="sup-cat-check"><input type="checkbox" value="__other__" id="sf-order-other-check" onchange="toggleOrderOther(this)"> Другое</label>
         </div>
+        <input class="sup-form-input" id="sf-order-other-text" placeholder="Введи способ..." style="display:none;margin-top:4px">
         <input class="sup-form-input" id="sf-order-note" placeholder="Уточнение: ссылка, номер, адрес почты..." style="margin-top:6px">
       </div>
       <div class="sup-form-group">
@@ -503,6 +509,15 @@ tr:hover td{background:#FAFAF8}
 let suppliers = [];
 let supFilterCat = 'Все';
 let supEditItems = [];
+function getSupCats() {
+  const base = ['Все','Ингредиенты','Снабжение','Упаковка','Типография','Рабочая одежда','Дизайн','Прочие'];
+  const custom = new Set();
+  suppliers.forEach(s => {
+    const cats = Array.isArray(s.cats) ? s.cats : (s.cat ? [s.cat] : []);
+    cats.forEach(c => { if (!base.includes(c) && c) custom.add(c); });
+  });
+  return [...base, ...custom];
+}
 const SUP_CATS = ['Все','Ингредиенты','Снабжение','Упаковка','Типография','Рабочая одежда','Дизайн','Прочие'];
 const SUP_LS = 'bv_suppliers_v1';
 
@@ -1255,6 +1270,18 @@ function badge(s) {
 function slugCat(cat) { return cat.replace(/[^a-zA-Zа-яА-Я0-9]/g,'_'); }
 function setSyncPill(cls,txt) { const p=document.getElementById('sync-pill'); p.textContent=txt; p.className='sync-pill '+(cls||''); }
 
+function toggleOrderOther(cb) {
+  const inp = document.getElementById('sf-order-other-text');
+  inp.style.display = cb.checked ? 'block' : 'none';
+  if (!cb.checked) inp.value = '';
+}
+
+function toggleCatOther(cb) {
+  const inp = document.getElementById('sf-cat-other-text');
+  inp.style.display = cb.checked ? 'block' : 'none';
+  if (!cb.checked) inp.value = '';
+}
+
 function saveAllNorms() {
   // Save all current threshold values from inputs to localStorage
   const cats = ROLE_CATS[currentRole] || [];
@@ -1480,9 +1507,15 @@ function openSupModal(idx) {
   document.getElementById('sf-name').value = sup.name||'';
   // Handle cats as array or string (backward compat)
   const supCats = Array.isArray(sup.cats) ? sup.cats : (sup.cat ? [sup.cat] : []);
+  const knownCats = ['Ингредиенты','Снабжение','Упаковка','Типография','Рабочая одежда','Дизайн','Прочие'];
+  const otherCat = supCats.find(c => !knownCats.includes(c));
   document.querySelectorAll('#sf-cats input[type=checkbox]').forEach(cb => {
-    cb.checked = supCats.includes(cb.value);
+    if (cb.value === '__other__') { cb.checked = !!otherCat; }
+    else cb.checked = supCats.includes(cb.value);
   });
+  const catOtherInp = document.getElementById('sf-cat-other-text');
+  if (otherCat) { catOtherInp.style.display='block'; catOtherInp.value=otherCat; }
+  else { catOtherInp.style.display='none'; catOtherInp.value=''; }
   document.getElementById('sf-reliability').value = sup.reliability||'ok';
   document.getElementById('sf-payment').value = sup.payment||'Наличные';
   document.getElementById('sf-defer').value = sup.defer||'';
@@ -1491,9 +1524,15 @@ function openSupModal(idx) {
   document.getElementById('sf-contact').value = sup.contact||'';
   document.getElementById('sf-url').value = sup.url||'';
   const orderMethods = Array.isArray(sup.orderMethods) ? sup.orderMethods : (sup.orderMethod ? [sup.orderMethod] : []);
+  const knownMethods = ['Через сайт','Звонок','SMS','WhatsApp','Viber','Telegram','Email','Самовывоз','Доставка по заявке','Приложение'];
+  const otherMethod = orderMethods.find(m => !knownMethods.includes(m));
   document.querySelectorAll('#sf-order-methods input[type=checkbox]').forEach(cb => {
-    cb.checked = orderMethods.includes(cb.value);
+    if (cb.value === '__other__') { cb.checked = !!otherMethod; }
+    else cb.checked = orderMethods.includes(cb.value);
   });
+  const orderOtherInp = document.getElementById('sf-order-other-text');
+  if (otherMethod) { orderOtherInp.style.display='block'; orderOtherInp.value=otherMethod; }
+  else { orderOtherInp.style.display='none'; orderOtherInp.value=''; }
   document.getElementById('sf-order-note').value = sup.orderNote||'';
   document.getElementById('sf-comment').value = sup.comment||'';
   supEditItems = sup.items ? [...sup.items] : [];
@@ -1592,8 +1631,16 @@ function saveSupplier() {
   if (!name) { document.getElementById('sf-name').focus(); return; }
   const sup = {
     name,
-    cats: Array.from(document.querySelectorAll('#sf-cats input[type=checkbox]:checked')).map(cb=>cb.value),
-    cat: Array.from(document.querySelectorAll('#sf-cats input[type=checkbox]:checked')).map(cb=>cb.value).join(', ') || 'Прочие',
+    cats: (()=>{
+      const checked = Array.from(document.querySelectorAll('#sf-cats input[type=checkbox]:checked')).map(cb=>cb.value);
+      const otherVal = document.getElementById('sf-cat-other-text').value.trim();
+      return checked.map(v => v==='__other__' ? otherVal : v).filter(Boolean);
+    })(),
+    cat: (()=>{
+      const checked = Array.from(document.querySelectorAll('#sf-cats input[type=checkbox]:checked')).map(cb=>cb.value);
+      const otherVal = document.getElementById('sf-cat-other-text').value.trim();
+      return checked.map(v => v==='__other__' ? otherVal : v).filter(Boolean).join(', ') || 'Прочие';
+    })(),
     reliability: document.getElementById('sf-reliability').value,
     payment: document.getElementById('sf-payment').value,
     defer: document.getElementById('sf-defer').value.trim(),
@@ -1601,8 +1648,16 @@ function saveSupplier() {
     address: document.getElementById('sf-address').value.trim(),
     contact: document.getElementById('sf-contact').value.trim(),
     url: document.getElementById('sf-url').value.trim(),
-    orderMethods: Array.from(document.querySelectorAll('#sf-order-methods input[type=checkbox]:checked')).map(cb=>cb.value),
-    orderMethod: Array.from(document.querySelectorAll('#sf-order-methods input[type=checkbox]:checked')).map(cb=>cb.value).join(', '),
+    orderMethods: (()=>{
+      const checked = Array.from(document.querySelectorAll('#sf-order-methods input[type=checkbox]:checked')).map(cb=>cb.value);
+      const otherVal = document.getElementById('sf-order-other-text').value.trim();
+      return checked.map(v => v==='__other__' ? otherVal : v).filter(Boolean);
+    })(),
+    orderMethod: (()=>{
+      const checked = Array.from(document.querySelectorAll('#sf-order-methods input[type=checkbox]:checked')).map(cb=>cb.value);
+      const otherVal = document.getElementById('sf-order-other-text').value.trim();
+      return checked.map(v => v==='__other__' ? otherVal : v).filter(Boolean).join(', ');
+    })(),
     orderNote: document.getElementById('sf-order-note').value.trim(),
     comment: document.getElementById('sf-comment').value.trim(),
     items: [...supEditItems]
