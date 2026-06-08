@@ -432,6 +432,21 @@ tr:hover td{background:#FAFAF8}
         </div>
       </div>
       <div class="sup-form-group">
+        <label>Как делать заказ</label>
+        <select class="sup-form-select" id="sf-order-method">
+          <option value="">— не указано —</option>
+          <option>Через сайт</option>
+          <option>Через менеджера (звонок)</option>
+          <option>Через менеджера (WhatsApp)</option>
+          <option>Через менеджера (Telegram)</option>
+          <option>Через менеджера (email)</option>
+          <option>Самовывоз</option>
+          <option>Доставка по заявке</option>
+          <option>Приложение</option>
+        </select>
+        <input class="sup-form-input" id="sf-order-note" placeholder="Уточнение: ссылка, номер, адрес почты..." style="margin-top:6px">
+      </div>
+      <div class="sup-form-group">
         <label>Что закупаем (позиции)</label>
         <div class="sup-items-list" id="sf-items-list"></div>
         <div class="sup-item-add" style="position:relative">
@@ -815,7 +830,8 @@ function buildSections(cats) {
     <div class="psec"><div class="ph">Срочно купить <span class="pcnt ptag-r" id="cnt-low">0</span></div><div class="p-list" id="list-low"></div></div>
     <div class="psec"><div class="ph">Пополнить (среднее) <span class="pcnt ptag-a" id="cnt-mid">0</span></div><div class="p-list" id="list-mid"></div></div>
     <div class="wish-box"><div class="wish-title">✨ Пожелания — что хотим приобрести</div>
-    <textarea class="wish-ta" id="wish-text" placeholder="Новый инвентарь, ингредиенты на пробу..."></textarea></div>`;
+    <textarea class="wish-ta" id="wish-text" placeholder="Новый инвентарь, ингредиенты на пробу..."></textarea></div>
+    <div id="purchase-by-supplier" style="margin-top:16px"></div>`;
   wrap.appendChild(ps);
 }
 
@@ -1038,6 +1054,7 @@ function buildPurchaseList() {
   });
   document.getElementById('cnt-low').textContent=lows.length;
   document.getElementById('cnt-mid').textContent=mids.length;
+  buildPurchaseBySupplier(lows, mids);
 }
 
 // ==================== SUMMARY + PROGRESS ====================
@@ -1361,6 +1378,7 @@ function renderSuppliers() {
           <div class="sup-field"><label>Мин. заказ</label><div class="sup-field-val">${sup.minorder||'—'}</div></div>
         </div>
         ${sup.contact?`<div class="sup-field"><label>Контакт</label><div class="sup-field-val">${sup.contact}</div></div>`:''}
+        ${sup.orderMethod?`<div class="sup-field"><label>Как заказывать</label><div class="sup-field-val" style="display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">${sup.orderMethod}</span>${sup.orderNote?`<span style="font-size:12px;color:var(--text2)">${sup.orderNote}</span>`:''}</div></div>`:''}
         ${sup.address?`<div class="sup-field"><label>Адрес</label><div class="sup-field-val">${sup.address}</div></div>`:''}
         ${sup.url?`<div class="sup-field"><label>Сайт</label><div class="sup-field-val"><a href="${sup.url}" target="_blank" style="color:var(--blue)">${sup.url}</a></div></div>`:''}
         ${sup.items&&sup.items.length?`<div class="sup-field"><label>Закупаем</label><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px">${sup.items.map(i=>`<span class="sup-badge sup-badge-neutral">${i}</span>`).join('')}</div></div>`:''}
@@ -1398,6 +1416,8 @@ function openSupModal(idx) {
   document.getElementById('sf-address').value = sup.address||'';
   document.getElementById('sf-contact').value = sup.contact||'';
   document.getElementById('sf-url').value = sup.url||'';
+  document.getElementById('sf-order-method').value = sup.orderMethod||'';
+  document.getElementById('sf-order-note').value = sup.orderNote||'';
   document.getElementById('sf-comment').value = sup.comment||'';
   supEditItems = sup.items ? [...sup.items] : [];
   renderSupItemTags();
@@ -1504,6 +1524,8 @@ function saveSupplier() {
     address: document.getElementById('sf-address').value.trim(),
     contact: document.getElementById('sf-contact').value.trim(),
     url: document.getElementById('sf-url').value.trim(),
+    orderMethod: document.getElementById('sf-order-method').value,
+    orderNote: document.getElementById('sf-order-note').value.trim(),
     comment: document.getElementById('sf-comment').value.trim(),
     items: [...supEditItems]
   };
@@ -1520,6 +1542,98 @@ function delSupplier(idx) {
   suppliers.splice(idx,1);
   saveSuppliers();
   renderSuppliers();
+}
+
+function buildPurchaseBySupplier(lows, mids) {
+  const wrap = document.getElementById('purchase-by-supplier');
+  if (!wrap) return;
+
+  const allNeed = [
+    ...lows.map(x => ({...x, urgency:'low'})),
+    ...mids.map(x => ({...x, urgency:'mid'}))
+  ];
+
+  if (!allNeed.length) { wrap.innerHTML=''; return; }
+
+  // Group by supplier
+  const grouped = {}; // {supplierName: {sup, items:[]}}
+  const noSupplier = [];
+
+  allNeed.forEach(({it, cat, i, s, urgency}) => {
+    const unit = s.unit || it.unit;
+    const matched = suppliers.filter(sv =>
+      sv.items && sv.items.some(si => si.toLowerCase() === it.name.toLowerCase())
+    );
+    if (matched.length === 0) {
+      noSupplier.push({name: it.name, cat, val: s.val||'—', unit, urgency, crit: s.crit||it.crit});
+    } else {
+      matched.forEach(sv => {
+        if (!grouped[sv.name]) grouped[sv.name] = {sup: sv, items: []};
+        grouped[sv.name].items.push({name: it.name, cat, val: s.val||'—', unit, urgency, crit: s.crit||it.crit});
+      });
+    }
+  });
+
+  const hasGroups = Object.keys(grouped).length > 0 || noSupplier.length > 0;
+  if (!hasGroups) { wrap.innerHTML=''; return; }
+
+  let html = `<div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:10px">📦 Список закупок по поставщикам</div>`;
+
+  Object.entries(grouped).forEach(([name, {sup, items}]) => {
+    const orderInfo = sup.orderMethod
+      ? `<span style="font-size:11px;color:var(--text2);margin-left:8px">${sup.orderMethod}${sup.orderNote ? ' · '+sup.orderNote : ''}</span>`
+      : '';
+    const contactInfo = sup.contact
+      ? `<span style="font-size:11px;color:var(--text3);margin-left:8px">${sup.contact}</span>`
+      : '';
+    const urlBtn = sup.url
+      ? `<a href="${sup.url}" target="_blank" style="font-size:11px;color:var(--blue);margin-left:8px">↗ сайт</a>`
+      : '';
+
+    html += `<div class="psec" style="margin-bottom:10px">
+      <div class="ph" style="flex-direction:column;align-items:flex-start;gap:4px">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
+          <span style="font-size:13px;font-weight:500">${name}</span>
+          ${urlBtn}${orderInfo}
+        </div>
+        ${contactInfo ? `<div>${contactInfo}</div>` : ''}
+      </div>
+      <div class="p-list">`;
+
+    items.sort((a,b) => (b.crit?1:0)-(a.crit?1:0)).forEach(item => {
+      const urgColor = item.urgency==='low' ? 'var(--red-mid)' : 'var(--amber-mid)';
+      const urgTag = item.urgency==='low'
+        ? `<span class="ptag ptag-r">Срочно</span>`
+        : `<span class="ptag ptag-a">Пополнить</span>`;
+      const critTag = item.crit ? `<span class="ptag ptag-r" style="margin-left:4px">Критично</span>` : '';
+      html += `<div class="pitem">
+        <div class="pdot" style="background:${urgColor}"></div>
+        <div class="pname">${item.name}<span class="pcat">${item.cat}</span></div>
+        <div class="pcurr">сейчас: ${item.val} ${item.unit}</div>
+        ${urgTag}${critTag}
+      </div>`;
+    });
+
+    html += `</div></div>`;
+  });
+
+  // Items without supplier
+  if (noSupplier.length) {
+    html += `<div class="psec" style="margin-bottom:10px;opacity:.7">
+      <div class="ph"><span style="font-size:13px;font-weight:500;color:var(--text2)">Поставщик не указан</span></div>
+      <div class="p-list">`;
+    noSupplier.sort((a,b)=>(b.crit?1:0)-(a.crit?1:0)).forEach(item => {
+      const urgColor = item.urgency==='low' ? 'var(--red-mid)' : 'var(--amber-mid)';
+      html += `<div class="pitem">
+        <div class="pdot" style="background:${urgColor}"></div>
+        <div class="pname">${item.name}<span class="pcat">${item.cat}</span></div>
+        <div class="pcurr">сейчас: ${item.val} ${item.unit}</div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  wrap.innerHTML = html;
 }
 
 function exportPDF() {
