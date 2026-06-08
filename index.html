@@ -1078,10 +1078,11 @@ function buildPurchaseList() {
     });
   });
   lows.sort((a,b)=>(b.s.crit?1:0)-(a.s.crit?1:0));
+  const showSupLinks = currentRole === 'manager';
   if(!lows.length) lEl.innerHTML='<div class="pempty">Всё в норме ✓</div>';
   else lows.forEach(({it,cat,i,s})=>{
     const unit=s.unit||it.unit,d=document.createElement('div');d.className='pitem';
-    const matchedSups=suppliers.filter(sv=>sv.items&&sv.items.some(si=>si.toLowerCase()===it.name.toLowerCase()));
+    const matchedSups=showSupLinks?suppliers.filter(sv=>sv.items&&sv.items.some(si=>si.toLowerCase()===it.name.toLowerCase())):[];
     const supLinks=matchedSups.map(sv=>sv.url
       ?`<a href="${sv.url}" target="_blank" style="font-size:11px;color:var(--blue);margin-left:4px;white-space:nowrap">↗ ${sv.name}</a>`
       :`<span style="font-size:11px;color:var(--text3);margin-left:4px;white-space:nowrap">${sv.name}</span>`
@@ -1092,7 +1093,7 @@ function buildPurchaseList() {
   if(!mids.length) mEl.innerHTML='<div class="pempty">Нет позиций</div>';
   else mids.forEach(({it,cat,i,s})=>{
     const unit=s.unit||it.unit,d=document.createElement('div');d.className='pitem';
-    const matchedSups2=suppliers.filter(sv=>sv.items&&sv.items.some(si=>si.toLowerCase()===it.name.toLowerCase()));
+    const matchedSups2=showSupLinks?suppliers.filter(sv=>sv.items&&sv.items.some(si=>si.toLowerCase()===it.name.toLowerCase())):[];
     const supLinks2=matchedSups2.map(sv=>sv.url
       ?`<a href="${sv.url}" target="_blank" style="font-size:11px;color:var(--blue);margin-left:4px;white-space:nowrap">↗ ${sv.name}</a>`
       :`<span style="font-size:11px;color:var(--text3);margin-left:4px;white-space:nowrap">${sv.name}</span>`
