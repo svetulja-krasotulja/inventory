@@ -89,6 +89,17 @@ tr:hover td{background:#FAFAF8}
 .tnum[readonly]{background:var(--bg2);color:var(--text2);border-color:transparent;cursor:default}
 .tnum.from-prev{color:var(--text3);background:#F7F6F0;border-color:var(--border)}
 .prev-tag{display:inline-block;font-size:9px;color:var(--text3);margin-top:2px;white-space:nowrap}
+/* INLINE SUPPLIER PICKER (manager only) */
+.supcell{position:relative}
+.sup-pick-btn{font-size:11px;padding:3px 8px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text2);cursor:pointer;font-family:inherit;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+.sup-pick-btn:hover{background:var(--bg2);color:var(--text)}
+.sup-pick-btn.has{color:var(--text);border-color:var(--blue)}
+.sup-pick-menu{position:absolute;top:100%;left:0;z-index:300;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);box-shadow:0 6px 18px rgba(0,0,0,.12);min-width:180px;max-height:240px;overflow-y:auto;padding:4px;display:none}
+.sup-pick-menu.open{display:block}
+.sup-pick-row{display:flex;align-items:center;gap:7px;padding:6px 8px;font-size:12px;cursor:pointer;border-radius:6px;color:var(--text)}
+.sup-pick-row:hover{background:var(--bg2)}
+.sup-pick-row input{accent-color:#1D1D1B;cursor:pointer}
+.sup-pick-empty{padding:8px;font-size:11px;color:var(--text3);text-align:center}
 .tsel{font-size:12px;padding:3px 6px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);width:62px;font-family:inherit}
 .tsel:focus{outline:none;border-color:var(--blue)}
 .tnote{width:100%;font-size:12px;padding:3px 6px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);font-family:inherit}
@@ -909,7 +920,7 @@ function buildTableHTML(cat) {
         <th style="min-width:140px">Название</th>
         <th>Сейчас</th><th>Ед.</th>
         <th>Норма≥</th><th>Среднее≥</th><th>Мало&lt;</th>
-        <th>Статус</th><th>Крит.</th><th style="min-width:110px">Заметка</th>
+        <th>Статус</th><th>Крит.</th>${canEdit?'<th style="min-width:120px">Поставщик</th>':''}<th style="min-width:110px">Заметка</th>
       </tr></thead>
       <tbody id="tbody-${slugCat(cat)}"></tbody>
     </table></div>`;
@@ -946,6 +957,7 @@ function renderTable(cat) {
       <td>${thEl(ok)}</td><td>${thEl(mid)}</td><td>${thEl(low)}</td>
       <td id="stc-${slugCat(cat)}-${i}">${badge(st)}</td>
       <td><div class="ctog${s.crit?' on':''}${canEditThresh?'':' disabled'}" data-cat="${cat}" data-i="${i}" onclick="onCrit(this)"></div></td>
+      ${canEditThresh?`<td class="supcell">${supPickerHTML(item.name)}</td>`:''}
       <td><input type="text" class="tnote" value="${s.note||''}" placeholder="..." data-cat="${cat}" data-i="${i}" onchange="onNote(this)"></td>`;
     tbody.appendChild(tr);
   });
@@ -1850,6 +1862,59 @@ function delSupplier(idx) {
   saveSuppliers();
   renderSuppliers();
 }
+
+// ===== Inline supplier picker (manager only) =====
+function suppliersForItem(itemName) {
+  return suppliers.filter(sv => sv.items && sv.items.some(si =>
+    String(si).toLowerCase() === String(itemName).toLowerCase()));
+}
+function supPickerHTML(itemName) {
+  const linked = suppliersForItem(itemName).map(s => s.name);
+  const label = linked.length ? linked.join(', ') : '+ поставщик';
+  const safe = itemName.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  return `<button type="button" class="sup-pick-btn${linked.length?' has':''}" title="${linked.join(', ')}" onclick="toggleSupPicker(this, '${safe}')">${label}</button>
+    <div class="sup-pick-menu"></div>`;
+}
+function toggleSupPicker(btn, itemName) {
+  // закрыть остальные
+  document.querySelectorAll('.sup-pick-menu.open').forEach(m => { if (m !== btn.nextElementSibling) m.classList.remove('open'); });
+  const menu = btn.nextElementSibling;
+  if (menu.classList.contains('open')) { menu.classList.remove('open'); return; }
+  if (!suppliers.length) {
+    menu.innerHTML = '<div class="sup-pick-empty">Поставщиков пока нет.<br>Добавь их на вкладке «Поставщики».</div>';
+  } else {
+    const linked = new Set(suppliersForItem(itemName).map(s => s.name));
+    menu.innerHTML = suppliers.map((s, idx) =>
+      `<label class="sup-pick-row"><input type="checkbox" ${linked.has(s.name)?'checked':''}
+        onchange="toggleItemSupplier(${idx}, '${itemName.replace(/'/g, "\\'")}', this.checked, this)"> ${s.name}</label>`
+    ).join('');
+  }
+  menu.classList.add('open');
+}
+function toggleItemSupplier(supIdx, itemName, checked, cb) {
+  const sup = suppliers[supIdx];
+  if (!sup) return;
+  if (!Array.isArray(sup.items)) sup.items = [];
+  const lc = String(itemName).toLowerCase();
+  const has = sup.items.some(si => String(si).toLowerCase() === lc);
+  if (checked && !has) sup.items.push(itemName);
+  if (!checked && has) sup.items = sup.items.filter(si => String(si).toLowerCase() !== lc);
+  saveSuppliers(); // в localStorage + Sheets
+  // обновить надпись на кнопке этой строки
+  const cell = cb.closest('.supcell');
+  if (cell) {
+    const linked = suppliersForItem(itemName).map(s => s.name);
+    const b = cell.querySelector('.sup-pick-btn');
+    if (b) { b.textContent = linked.length ? linked.join(', ') : '+ поставщик'; b.title = linked.join(', '); b.classList.toggle('has', linked.length>0); }
+  }
+  buildPurchaseList(); // пересчитать список закупок по поставщикам
+}
+// закрытие меню по клику вне его
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.supcell')) {
+    document.querySelectorAll('.sup-pick-menu.open').forEach(m => m.classList.remove('open'));
+  }
+});
 
 function buildPurchaseBySupplier(lows, mids) {
   const wrap = document.getElementById('purchase-by-supplier');
