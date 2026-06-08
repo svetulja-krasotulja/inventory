@@ -147,6 +147,13 @@ tr:hover td{background:#FAFAF8}
 .btn-tg:hover{background:#1a9bde}
 .btn-sm{font-size:12px;color:var(--text3);border-color:var(--border);padding:7px 12px}
 .print-only{display:none}
+.complete-check{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:.5px solid var(--border);font-size:13px}
+.complete-check:last-child{border-bottom:none}
+.complete-check-icon{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.complete-check-ok{background:var(--green-bg);color:var(--green)}
+.complete-check-bad{background:var(--red-bg);color:var(--red)}
+.complete-confirm{background:var(--bg2);border-radius:var(--r);padding:12px;margin-top:12px;font-size:13px;color:var(--text2);line-height:1.6}
+.complete-confirm strong{color:var(--text)}
 /* SUPPLIERS */
 .sup-cats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
 .sup-cat-btn{padding:6px 14px;font-size:12px;border:.5px solid var(--border2);border-radius:20px;background:var(--bg3);color:var(--text2);cursor:pointer;font-family:inherit;transition:background .15s}
@@ -474,6 +481,28 @@ tr:hover td{background:#FAFAF8}
   </div>
 </div>
 
+<!-- COMPLETION MODAL -->
+<div class="modal-overlay" id="complete-modal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-head">
+      <div class="modal-title">Завершить инвентаризацию</div>
+      <button class="modal-close" onclick="closeModal('complete-modal')">×</button>
+    </div>
+    <div class="modal-body" id="complete-body"></div>
+  </div>
+</div>
+
+<!-- COMPLETION BLOCKED MODAL -->
+<div class="modal-overlay" id="incomplete-modal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-head">
+      <div class="modal-title">⚠️ Не все разделы заполнены</div>
+      <button class="modal-close" onclick="closeModal('incomplete-modal')">×</button>
+    </div>
+    <div class="modal-body" id="incomplete-body"></div>
+  </div>
+</div>
+
 <!-- TOPBAR -->
 <div class="topbar">
   <div class="tbar-title" style="display:flex;align-items:center;gap:10px"><img src="data:image/png;base64,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" style="height:40px;width:auto;object-fit:contain" alt="BreadVenture"><span style="color:#888;font-weight:300;font-size:13px">Инвентаризация</span></div>
@@ -765,6 +794,7 @@ function applyRole() {
   badge.className = 'role-badge ' + cls[currentRole];
   badge.style.display = '';
   buildUI();
+  applyRoleUI();
 }
 
 // ==================== UI BUILD ====================
@@ -844,8 +874,11 @@ function buildSections(cats) {
   ps.innerHTML = `
     <div class="psec"><div class="ph">Срочно купить <span class="pcnt ptag-r" id="cnt-low">0</span></div><div class="p-list" id="list-low"></div></div>
     <div class="psec"><div class="ph">Пополнить (среднее) <span class="pcnt ptag-a" id="cnt-mid">0</span></div><div class="p-list" id="list-mid"></div></div>
-    <div class="wish-box"><div class="wish-title">✨ Пожелания — что хотим приобрести</div>
-    <textarea class="wish-ta" id="wish-text" placeholder="Новый инвентарь, ингредиенты на пробу..."></textarea></div>
+    <div class="wish-box">
+      <div class="wish-title">✨ Запросы менеджеру</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Напиши что нужно купить или заказать — это уйдёт менеджеру вместе с отчётом при сохранении в Sheets.</div>
+      <textarea class="wish-ta" id="wish-text" placeholder="Например: закончились одноразовые перчатки S, нужен новый скребок, хотим попробовать другую муку..."></textarea>
+    </div>
     <div id="purchase-by-supplier" style="margin-top:16px"></div>`;
   wrap.appendChild(ps);
 }
@@ -1721,7 +1754,7 @@ function buildPurchaseBySupplier(lows, mids) {
       ? `<span style="font-size:11px;color:var(--text3);margin-left:8px">${sup.contact}</span>`
       : '';
     const urlBtn = sup.url
-      ? `<a href="${sup.url}" target="_blank" style="font-size:11px;color:var(--blue);margin-left:8px">↗ inventory_bv</a>`
+      ? `<a href="${sup.url}" target="_blank" style="font-size:11px;color:var(--blue);margin-left:8px">↗ сайт</a>`
       : '';
 
     html += `<div class="psec" style="margin-bottom:10px">
@@ -1768,6 +1801,85 @@ function buildPurchaseBySupplier(lows, mids) {
   }
 
   wrap.innerHTML = html;
+}
+
+// ==================== COMPLETION ====================
+function applyRoleUI() {
+  const btn = document.getElementById('btn-complete');
+  if (!btn) return;
+  // Show complete button only for baker and barista
+  btn.style.display = (currentRole === 'baker' || currentRole === 'barista') ? 'flex' : 'none';
+}
+
+function getCatFillStatus() {
+  const cats = ROLE_CATS[currentRole] || [];
+  return cats.map(cat => {
+    const its = items[cat] || [];
+    const total = its.length;
+    const filled = its.filter((_, i) => {
+      const s = state[cat] && state[cat][i];
+      return s && s.val !== '' && s.val !== null && s.val !== undefined;
+    }).length;
+    return { cat, total, filled, pct: total ? Math.round(filled/total*100) : 0 };
+  });
+}
+
+function tryComplete() {
+  const statuses = getCatFillStatus();
+  const allFilled = statuses.every(s => s.filled === s.total);
+
+  if (!allFilled) {
+    // Show what's missing
+    const body = document.getElementById('incomplete-body');
+    body.innerHTML = '<div style="margin-bottom:12px;font-size:13px;color:var(--text2)">Нужно заполнить все позиции во всех разделах:</div>' +
+      statuses.map(s => `<div class="complete-check">
+        <div class="complete-check-icon ${s.filled === s.total ? 'complete-check-ok' : 'complete-check-bad'}">${s.filled === s.total ? '✓' : '!'}</div>
+        <div style="flex:1">
+          <div style="font-weight:500">${s.cat}</div>
+          <div style="font-size:12px;color:var(--text2)">Заполнено: ${s.filled} из ${s.total}</div>
+        </div>
+        ${s.filled < s.total ? `<button class="btn" style="font-size:12px;padding:5px 12px" onclick="closeModal('incomplete-modal');setActiveTab('${s.cat}')">Перейти →</button>` : ''}
+      </div>`).join('') +
+      '<div style="margin-top:12px;padding:10px;background:var(--red-bg);border-radius:var(--r);font-size:12px;color:var(--red)">Пожалуйста, заполни все разделы и вернись для завершения.</div>';
+    document.getElementById('incomplete-modal').classList.add('open');
+    return;
+  }
+
+  // All filled - show confirmation
+  const roleLabel = {baker:'Пекарь', barista:'Бариста'}[currentRole] || '';
+  const catLabels = {
+    baker: ['ингредиенты пекарни', 'расходники пекарни'],
+    barista: ['расходники бара', 'ингредиенты бара']
+  }[currentRole] || [];
+
+  const body = document.getElementById('complete-body');
+  body.innerHTML = `
+    <div style="margin-bottom:14px">
+      ${statuses.map(s => `<div class="complete-check">
+        <div class="complete-check-icon complete-check-ok">✓</div>
+        <div style="flex:1"><div style="font-weight:500">${s.cat}</div>
+        <div style="font-size:12px;color:var(--text2)">Заполнено ${s.filled} из ${s.total} позиций</div></div>
+      </div>`).join('')}
+    </div>
+    <div class="complete-confirm">
+      Подтверждаю, что провёл(а) инспекцию:<br>
+      ${catLabels.map(c => `<strong>✓ ${c}</strong>`).join('<br>')}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn" onclick="closeModal('complete-modal')" style="flex:1">Отмена</button>
+      <button class="btn btn-dark" onclick="confirmComplete()" style="flex:1">Подтвердить и отправить</button>
+    </div>`;
+  document.getElementById('complete-modal').classList.add('open');
+}
+
+async function confirmComplete() {
+  closeModal('complete-modal');
+  // Save to Sheets first
+  await saveToSheets();
+  // Then send to Telegram
+  if (SCRIPT_URL) await sendToTelegram();
+  // Show success
+  setSyncPill('ok', '✅ Отчёт завершён и отправлен');
 }
 
 function exportPDF() {
