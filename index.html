@@ -754,15 +754,24 @@ async function doLogin() {
       document.getElementById('inv-who').value = d.name;
       applyRole();
       loadFromSheets();
+    } else if (d.error === 'blocked') {
+      document.getElementById('pin-error').textContent = '🔒 ' + (d.message || 'Заблокировано. Подожди 15 минут.');
+      updatePinDots('error');
+      document.getElementById('pin-ok-btn').disabled = true;
+      pinBuffer = '';
+      updatePinDots('clear');
     } else {
-      document.getElementById('pin-error').textContent = 'Неверный пин-код';
+      const left = d.attemptsLeft;
+      document.getElementById('pin-error').textContent = left !== undefined
+        ? `Неверный пин. Осталось попыток: ${left}`
+        : 'Неверный пин-код';
       updatePinDots('error');
       setTimeout(() => {
         pinBuffer = '';
         updatePinDots('clear');
         document.getElementById('pin-error').textContent = '';
         document.getElementById('pin-ok-btn').disabled = true;
-      }, 900);
+      }, 1200);
     }
   } catch(e) {
     document.getElementById('pin-error').textContent = 'Ошибка соединения';
@@ -1451,11 +1460,44 @@ showLogin();
 
 // ==================== SUPPLIERS ====================
 function loadSuppliers() {
+  // Load from localStorage first (instant)
   try { suppliers = JSON.parse(localStorage.getItem(SUP_LS)||'[]'); } catch(e) { suppliers = []; }
+  // Then sync from Sheets in background (may override local)
+  if (SCRIPT_URL) loadSuppliersFromSheets();
+}
+
+async function loadSuppliersFromSheets() {
+  try {
+    const r = await fetch(SCRIPT_URL + '?action=getSuppliers');
+    const d = await r.json();
+    if (d.status === 'ok' && d.suppliers && d.suppliers.length) {
+      suppliers = d.suppliers;
+      // Update localStorage cache
+      try { localStorage.setItem(SUP_LS, JSON.stringify(suppliers)); } catch(e) {}
+      // Re-render if on suppliers tab
+      if (document.getElementById('sec-__suppliers') &&
+          document.getElementById('sec-__suppliers').style.display !== 'none') {
+        renderSuppliers();
+      }
+    }
+  } catch(e) {}
 }
 
 function saveSuppliers() {
+  // Always save to localStorage as cache
   try { localStorage.setItem(SUP_LS, JSON.stringify(suppliers)); } catch(e) {}
+  // Sync to Sheets in background
+  if (SCRIPT_URL) syncSuppliersToSheets();
+}
+
+async function syncSuppliersToSheets() {
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'action=setSuppliers&data=' + encodeURIComponent(JSON.stringify(suppliers))
+    });
+  } catch(e) {}
 }
 
 function renderSuppliers() {
