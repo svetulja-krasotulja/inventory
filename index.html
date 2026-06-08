@@ -1165,6 +1165,7 @@ async function loadFromSheets() {
         }
       });
       const cats=ROLE_CATS[currentRole]||[];
+      loadThreshLocal(); // restore local thresholds before rendering
       cats.forEach(c=>renderTable(c));
       updateSummary(); buildPurchaseList();
       setSyncPill('ok','✓ Данные загружены');
@@ -1181,6 +1182,7 @@ async function loadFromSheets() {
         if(bk.who) document.getElementById('inv-who').value = bk.who;
         if(bk.wish) { const w=document.getElementById('wish-text'); if(w) w.value=bk.wish; }
         const cats=ROLE_CATS[currentRole]||[];
+        loadThreshLocal();
         cats.forEach(c=>renderTable(c));
         updateSummary(); buildPurchaseList();
         setSyncPill('ok','✓ Загружено из кэша');
@@ -1249,6 +1251,24 @@ function badge(s) {
 }
 function slugCat(cat) { return cat.replace(/[^a-zA-Zа-яА-Я0-9]/g,'_'); }
 function setSyncPill(cls,txt) { const p=document.getElementById('sync-pill'); p.textContent=txt; p.className='sync-pill '+(cls||''); }
+
+function saveThreshLocal() {
+  try { localStorage.setItem('bv_thresh_v1', JSON.stringify(thresh)); } catch(e) {}
+}
+
+function loadThreshLocal() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('bv_thresh_v1') || 'null');
+    if (saved) {
+      Object.keys(saved).forEach(cat => {
+        if (!thresh[cat]) thresh[cat] = {};
+        Object.keys(saved[cat]).forEach(i => {
+          thresh[cat][i] = {...(thresh[cat][i]||{}), ...saved[cat][i]};
+        });
+      });
+    }
+  } catch(e) {}
+}
 
 function newInv() {
   if(!confirm('Очистить все значения? Пороги сохранятся.')) return;
@@ -1327,6 +1347,7 @@ function logout() {
 // ==================== INIT ====================
 document.getElementById('inv-date').value = new Date().toISOString().split('T')[0];
 loadSuppliers();
+loadThreshLocal();
 const savedUrl = localStorage.getItem(LS_URL);
 if(savedUrl) { SCRIPT_URL=savedUrl; document.getElementById('setup-overlay').classList.remove('open'); showLogin(); }
 
