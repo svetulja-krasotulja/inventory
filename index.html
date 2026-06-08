@@ -527,8 +527,9 @@ tr:hover td{background:#FAFAF8}
 <div id="all-sections"></div>
 
 <div class="actions" id="action-bar">
-  <button class="btn btn-dark" id="btn-save" onclick="saveToSheets()" disabled>💾 Сохранить в Sheets</button>
-  <button class="btn btn-tg" id="btn-tg" onclick="sendToTelegram()" disabled>✈️ Отправить в Telegram</button>
+  <button class="btn btn-dark staff-only" id="btn-report" onclick="sendReport()" disabled>📤 Отправить отчёт</button>
+  <button class="btn btn-dark mgr-only" id="btn-save" onclick="saveToSheets()" disabled>💾 Сохранить в Sheets</button>
+  <button class="btn btn-tg mgr-only" id="btn-tg" onclick="sendToTelegram()" disabled>✈️ Отправить в Telegram</button>
   <button class="btn" onclick="openHistory()">🕐 История</button>
   <button class="btn mgr-only" onclick="exportPDF()">⬇ PDF</button>
   <button class="btn mgr-only" onclick="window.print()">🖨</button>
@@ -1137,8 +1138,9 @@ function updateProgress() {
   });
   const pct = total ? Math.round(filled/total*100) : 0;
   document.getElementById('progress-fill').style.width = pct+'%';
-  document.getElementById('btn-save').disabled = false;
-  document.getElementById('btn-tg').disabled = false;
+  const bs = document.getElementById('btn-save'); if (bs) bs.disabled = false;
+  const bt = document.getElementById('btn-tg'); if (bt) bt.disabled = false;
+  const br = document.getElementById('btn-report'); if (br) br.disabled = false;
 }
 
 // ==================== TABS ====================
@@ -1839,6 +1841,9 @@ function buildPurchaseBySupplier(lows, mids) {
   const wrap = document.getElementById('purchase-by-supplier');
   if (!wrap) return;
 
+  // Список закупок по поставщикам — только для менеджера
+  if (currentRole !== 'manager') { wrap.innerHTML = ''; return; }
+
   const allNeed = [
     ...lows.map(x => ({...x, urgency:'low'})),
     ...mids.map(x => ({...x, urgency:'mid'}))
@@ -2009,6 +2014,21 @@ async function confirmComplete() {
   await saveToSheets();
   await sendToTelegram();
   setSyncPill('ok', '✅ Отчёт сохранён и отправлен');
+}
+
+// Одна кнопка для пекаря/баристы: сохранить в Sheets + отправить в Telegram
+async function sendReport() {
+  const btn = document.getElementById('btn-report');
+  if (btn) btn.disabled = true;
+  setSyncPill('busy', '📤 Отправляю отчёт...');
+  try {
+    await saveToSheets();
+    await sendToTelegram();
+    setSyncPill('ok', '✅ Отчёт сохранён и отправлен');
+  } catch(e) {
+    setSyncPill('err', '⚠ ' + e.message);
+  }
+  if (btn) btn.disabled = false;
 }
 
 function exportPDF() {
