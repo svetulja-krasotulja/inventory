@@ -895,19 +895,25 @@ function buildSections(cats) {
 
 function buildTableHTML(cat) {
   const canEdit = currentRole === 'manager';
-  const instrText = canEdit
-    ? '<li>Вкладка <strong>Списки</strong> — добавляйте/удаляйте позиции и сохраняйте в Sheets.</li>'
-    : '<li>Пороги Норма/Среднее/Мало редактирует менеджер.</li>';
+  const instrBody = canEdit ? `
+      <li>Заполняйте инвентаризацию <strong>2 раза в неделю</strong>. Вверху укажите <strong>дату</strong> и <strong>кто заполнял</strong>.</li>
+      <li>В колонке <strong>«Сейчас»</strong> впишите текущий остаток. Значения с прошлой инвентаризации подставляются автоматически и показаны <strong>серым с датой</strong> — поправьте их на актуальные, отредактированные станут яркими.</li>
+      <li><strong>Статус</strong> (Норма / Среднее / Мало) считается сам по порогам в колонках «Норма≥», «Среднее≥», «Мало&lt;». Эти пороги вы можете менять прямо в таблице, потом нажать <strong>«Сохранить нормы»</strong>.</li>
+      <li><strong>Крит.</strong> — переключатель для позиций, которые нельзя доводить до нуля (красная полоса слева).</li>
+      <li>Колонка <strong>«Поставщик»</strong> — привяжите к позиции одного или нескольких поставщиков (галочками). Связь общая с вкладкой «Поставщики».</li>
+      <li>Вкладка <strong>«Списки»</strong> — добавить/удалить позиции. Вкладка <strong>«Поставщики»</strong> — карточки с контактами и условиями.</li>
+      <li>На вкладке <strong>«Закупки»</strong> — что нужно купить, сгруппировано по поставщикам, с подсказкой <strong>сколько докупить до нормы</strong>.</li>
+      <li><strong>Сохранить в Sheets</strong> — записать данные в таблицу. <strong>Отправить в Telegram</strong> — отчёт по поставщикам уходит вам в личку.</li>` : `
+      <li>Заполняйте инвентаризацию <strong>2 раза в неделю</strong>. Вверху укажите <strong>дату</strong>, имя подставляется автоматически.</li>
+      <li>В колонке <strong>«Сейчас»</strong> впишите текущий остаток по каждой позиции. Значения с прошлого раза подставлены и показаны <strong>серым с датой</strong> — просто исправьте их на актуальные. Изменённые станут яркими, так видно что уже проверено.</li>
+      <li><strong>Статус</strong> (Норма / Среднее / Мало) проставляется автоматически — считать ничего не нужно.</li>
+      <li><strong>Крит.</strong> (красная полоса слева) — это позиции, которые нельзя доводить до нуля. Их пороги задаёт менеджер.</li>
+      <li>На вкладке <strong>«Закупки»</strong> видно, что заканчивается, и <strong>сколько докупить до нормы</strong>. Там же поле <strong>«Запросы менеджеру»</strong> — напишите, если что-то нужно дополнительно.</li>
+      <li>Когда всё заполнили — нажмите <strong>«Отправить отчёт»</strong>. Он сразу сохранится и уйдёт менеджеру. Это всё, что нужно сделать.</li>`;
   return `<div class="instr">
     <div class="instr-h" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.arr').textContent=this.nextElementSibling.classList.contains('open')?'▲':'▼'">
       ℹ️ Инструкция <span class="arr">▼</span></div>
-    <div class="instr-b"><ul>
-      <li>Заполняйте <strong>2 раза в неделю</strong> — укажите дату и имя вверху.</li>
-      <li>Введите <strong>текущее количество</strong>. Статус проставляется автоматически.</li>
-      <li><strong>Крит.</strong> — позиции нельзя доводить до нуля. Красная полоса слева.</li>
-      ${instrText}
-      <li>Нажмите <strong>Сохранить в Sheets</strong> — данные пишутся в таблицу.</li>
-      <li>Нажмите <strong>Отправить в Telegram</strong> — отчёт летит в чат закупок.</li>
+    <div class="instr-b"><ul>${instrBody}
     </ul></div></div>
     <div class="legend">
       <div class="leg"><div class="ldot" style="background:var(--green-mid)"></div>Норма</div>
@@ -1108,7 +1114,7 @@ function buildPurchaseList() {
       ?`<a href="${sv.url}" target="_blank" style="font-size:11px;color:var(--blue);margin-left:4px;white-space:nowrap">↗ ${sv.name}</a>`
       :`<span style="font-size:11px;color:var(--text3);margin-left:4px;white-space:nowrap">${sv.name}</span>`
     ).join('');
-    d.innerHTML=`<div class="pdot" style="background:var(--red-mid)"></div><div class="pname">${it.name}<span class="pcat">${cat}</span>${supLinks}</div><div class="pcurr">сейчас: ${s.val||'—'} ${unit}</div>${s.crit?'<span class="ptag ptag-r">Критично</span>':''}`;
+    d.innerHTML=`<div class="pdot" style="background:var(--red-mid)"></div><div class="pname">${it.name}<span class="pcat">${cat}</span>${supLinks}</div><div class="pcurr">сейчас: ${s.val||'—'} ${unit}${(()=>{const n=needToBuy(cat,i,s.val);return n>0?` · <b style="color:var(--red)">докупить ${n} ${unit}</b>`:'';})()}</div>${s.crit?'<span class="ptag ptag-r">Критично</span>':''}`;
     lEl.appendChild(d);
   });
   if(!mids.length) mEl.innerHTML='<div class="pempty">Нет позиций</div>';
@@ -1119,7 +1125,7 @@ function buildPurchaseList() {
       ?`<a href="${sv.url}" target="_blank" style="font-size:11px;color:var(--blue);margin-left:4px;white-space:nowrap">↗ ${sv.name}</a>`
       :`<span style="font-size:11px;color:var(--text3);margin-left:4px;white-space:nowrap">${sv.name}</span>`
     ).join('');
-    d.innerHTML=`<div class="pdot" style="background:var(--blue)"></div><div class="pname">${it.name}<span class="pcat">${cat}</span>${supLinks2}</div><div class="pcurr">сейчас: ${s.val||'—'} ${unit}</div><span class="ptag ptag-a">Среднее</span>`;
+    d.innerHTML=`<div class="pdot" style="background:var(--blue)"></div><div class="pname">${it.name}<span class="pcat">${cat}</span>${supLinks2}</div><div class="pcurr">сейчас: ${s.val||'—'} ${unit}${(()=>{const n=needToBuy(cat,i,s.val);return n>0?` · <b style="color:var(--amber)">докупить ${n} ${unit}</b>`:'';})()}</div><span class="ptag ptag-a">Среднее</span>`;
     mEl.appendChild(d);
   });
   document.getElementById('cnt-low').textContent=lows.length;
@@ -1308,8 +1314,13 @@ function buildPayload() {
   cats.forEach(cat=>{
     (items[cat]||[]).forEach((it,i)=>{
       const s=state[cat]&&state[cat][i]?state[cat][i]:{};
+      const okT = getThresh(cat,i,'ok');
+      const curNum = parseFloat(s.val);
+      // сколько докупить до нормы (оптимума); если значение не число — пусто
+      const need = (!isNaN(curNum) && okT > curNum) ? +(okT - curNum).toFixed(2) : 0;
       allItems.push({cat, name:it.name, val:s.val||'', unit:s.unit||it.unit,
-        status:statusLabel(getStatus(s.val||'', getThresh(cat,i,'ok'), getThresh(cat,i,'mid'))),
+        status:statusLabel(getStatus(s.val||'', okT, getThresh(cat,i,'mid'))),
+        norm: okT, need: need,
         crit:!!s.crit, note:s.note||''});
     });
   });
@@ -1322,6 +1333,13 @@ function getThresh(cat,i,f) {
   const t=thresh[cat]&&thresh[cat][i]?thresh[cat][i]:{};
   const it=(items[cat]||[])[i]||{};
   return t[f]!=null?t[f]:(it[f]||0);
+}
+// сколько докупить до нормы (оптимума)
+function needToBuy(cat,i,val) {
+  const ok = getThresh(cat,i,'ok');
+  const cur = parseFloat(val);
+  if (isNaN(cur) || ok <= cur) return 0;
+  return +(ok - cur).toFixed(2);
 }
 function getStatus(val, ok, mid) {
   if(val===''||val===null||isNaN(parseFloat(val))) return 'none';
@@ -1977,15 +1995,16 @@ function buildPurchaseBySupplier(lows, mids) {
 
   allNeed.forEach(({it, cat, i, s, urgency}) => {
     const unit = s.unit || it.unit;
+    const need = needToBuy(cat, i, s.val);
     const matched = suppliers.filter(sv =>
       sv.items && sv.items.some(si => si.toLowerCase() === it.name.toLowerCase())
     );
     if (matched.length === 0) {
-      noSupplier.push({name: it.name, cat, val: s.val||'—', unit, urgency, crit: s.crit||it.crit});
+      noSupplier.push({name: it.name, cat, val: s.val||'—', unit, need, urgency, crit: s.crit||it.crit});
     } else {
       matched.forEach(sv => {
         if (!grouped[sv.name]) grouped[sv.name] = {sup: sv, items: []};
-        grouped[sv.name].items.push({name: it.name, cat, val: s.val||'—', unit, urgency, crit: s.crit||it.crit});
+        grouped[sv.name].items.push({name: it.name, cat, val: s.val||'—', unit, need, urgency, crit: s.crit||it.crit});
       });
     }
   });
@@ -2026,7 +2045,7 @@ function buildPurchaseBySupplier(lows, mids) {
       html += `<div class="pitem">
         <div class="pdot" style="background:${urgColor}"></div>
         <div class="pname">${item.name}<span class="pcat">${item.cat}</span></div>
-        <div class="pcurr">сейчас: ${item.val} ${item.unit}</div>
+        <div class="pcurr">сейчас: ${item.val} ${item.unit}${item.need>0?` · <b>докупить ${item.need} ${item.unit}</b>`:""}</div>
         ${urgTag}${critTag}
       </div>`;
     });
@@ -2044,7 +2063,7 @@ function buildPurchaseBySupplier(lows, mids) {
       html += `<div class="pitem">
         <div class="pdot" style="background:${urgColor}"></div>
         <div class="pname">${item.name}<span class="pcat">${item.cat}</span></div>
-        <div class="pcurr">сейчас: ${item.val} ${item.unit}</div>
+        <div class="pcurr">сейчас: ${item.val} ${item.unit}${item.need>0?` · <b>докупить ${item.need} ${item.unit}</b>`:""}</div>
       </div>`;
     });
     html += `</div></div>`;
