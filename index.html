@@ -199,6 +199,12 @@ tr:hover td{background:#FAFAF8}
 .sup-item-add button{padding:6px 12px;font-size:12px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--bg3);color:var(--text);cursor:pointer;font-family:inherit}
 .sup-item-add button:hover{background:var(--bg2)}
 .sup-empty{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px}
+.sup-suggest-item{padding:8px 12px;font-size:13px;cursor:pointer;color:var(--text);border-bottom:.5px solid var(--border)}
+.sup-suggest-item:last-child{border-bottom:none}
+.sup-suggest-item:hover,.sup-suggest-item.active{background:var(--bg2)}
+.sup-cat-check{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text);padding:4px 10px;border:.5px solid var(--border2);border-radius:20px;cursor:pointer;transition:background .15s}
+.sup-cat-check:hover{background:var(--bg2)}
+.sup-cat-check input{accent-color:#1D1D1B;cursor:pointer}
 .pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid #C8C6BC;background:transparent;transition:background .15s,border-color .15s}
 .pin-dot.filled{background:#1D1D1B;border-color:#1D1D1B}
 .pin-dot.error{background:#E24B4A;border-color:#E24B4A}
@@ -369,16 +375,16 @@ tr:hover td{background:#FAFAF8}
           <input class="sup-form-input" id="sf-name" placeholder="Название компании">
         </div>
         <div class="sup-form-group">
-          <label>Категория</label>
-          <select class="sup-form-select" id="sf-cat">
-            <option>Ингредиенты</option>
-            <option>Снабжение</option>
-            <option>Упаковка</option>
-            <option>Типография</option>
-            <option>Рабочая одежда</option>
-            <option>Дизайн</option>
-            <option>Прочие</option>
-          </select>
+          <label>Категории (можно несколько)</label>
+          <div id="sf-cats" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0">
+            <label class="sup-cat-check"><input type="checkbox" value="Ингредиенты"> Ингредиенты</label>
+            <label class="sup-cat-check"><input type="checkbox" value="Снабжение"> Снабжение</label>
+            <label class="sup-cat-check"><input type="checkbox" value="Упаковка"> Упаковка</label>
+            <label class="sup-cat-check"><input type="checkbox" value="Типография"> Типография</label>
+            <label class="sup-cat-check"><input type="checkbox" value="Рабочая одежда"> Рабочая одежда</label>
+            <label class="sup-cat-check"><input type="checkbox" value="Дизайн"> Дизайн</label>
+            <label class="sup-cat-check"><input type="checkbox" value="Прочие"> Прочие</label>
+          </div>
         </div>
       </div>
       <div class="sup-form-row">
@@ -428,9 +434,12 @@ tr:hover td{background:#FAFAF8}
       <div class="sup-form-group">
         <label>Что закупаем (позиции)</label>
         <div class="sup-items-list" id="sf-items-list"></div>
-        <div class="sup-item-add">
-          <input id="sf-item-inp" placeholder="Название позиции..." onkeydown="if(event.key==='Enter')addSupItem()">
+        <div class="sup-item-add" style="position:relative">
+          <input id="sf-item-inp" placeholder="Начни вводить название..." autocomplete="off"
+            oninput="showSupSuggest(this.value)"
+            onkeydown="handleSupKey(event)">
           <button onclick="addSupItem()">+ Добавить</button>
+          <div id="sf-suggest" style="display:none;position:absolute;top:100%;left:0;right:40px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:100;max-height:180px;overflow-y:auto"></div>
         </div>
       </div>
       <div class="sup-form-group">
@@ -1008,15 +1017,23 @@ function buildPurchaseList() {
   if(!lows.length) lEl.innerHTML='<div class="pempty">Всё в норме ✓</div>';
   else lows.forEach(({it,cat,i,s})=>{
     const unit=s.unit||it.unit,d=document.createElement('div');d.className='pitem';
-    const sup=suppliers.find(sv=>sv.items&&sv.items.some(si=>si.toLowerCase()===it.name.toLowerCase()));
-    const supLink=sup?(sup.url?`<a href="${sup.url}" target="_blank" style="font-size:11px;color:var(--blue);margin-left:4px">↗ ${sup.name}</a>`:`<span style="font-size:11px;color:var(--text3);margin-left:4px">${sup.name}</span>`):'';
-    d.innerHTML=`<div class="pdot" style="background:${s.crit?'var(--red-mid)':'var(--amber-mid)'}"></div><div class="pname">${it.name}<span class="pcat">${cat}</span>${supLink}</div><div class="pcurr">сейчас: ${s.val||'—'} ${unit}</div>${s.crit?'<span class="ptag ptag-r">Критично</span>':''}`;
+    const matchedSups=suppliers.filter(sv=>sv.items&&sv.items.some(si=>si.toLowerCase()===it.name.toLowerCase()));
+    const supLinks=matchedSups.map(sv=>sv.url
+      ?`<a href="${sv.url}" target="_blank" style="font-size:11px;color:var(--blue);margin-left:4px;white-space:nowrap">↗ ${sv.name}</a>`
+      :`<span style="font-size:11px;color:var(--text3);margin-left:4px;white-space:nowrap">${sv.name}</span>`
+    ).join('');
+    d.innerHTML=`<div class="pdot" style="background:${s.crit?'var(--red-mid)':'var(--amber-mid)'}"></div><div class="pname">${it.name}<span class="pcat">${cat}</span>${supLinks}</div><div class="pcurr">сейчас: ${s.val||'—'} ${unit}</div>${s.crit?'<span class="ptag ptag-r">Критично</span>':''}`;
     lEl.appendChild(d);
   });
   if(!mids.length) mEl.innerHTML='<div class="pempty">Нет позиций</div>';
   else mids.forEach(({it,cat,i,s})=>{
     const unit=s.unit||it.unit,d=document.createElement('div');d.className='pitem';
-    d.innerHTML=`<div class="pdot" style="background:var(--amber-mid)"></div><div class="pname">${it.name}<span class="pcat">${cat}</span></div><div class="pcurr">сейчас: ${s.val||'—'} ${unit}</div><span class="ptag ptag-a">Среднее</span>`;
+    const matchedSups2=suppliers.filter(sv=>sv.items&&sv.items.some(si=>si.toLowerCase()===it.name.toLowerCase()));
+    const supLinks2=matchedSups2.map(sv=>sv.url
+      ?`<a href="${sv.url}" target="_blank" style="font-size:11px;color:var(--blue);margin-left:4px;white-space:nowrap">↗ ${sv.name}</a>`
+      :`<span style="font-size:11px;color:var(--text3);margin-left:4px;white-space:nowrap">${sv.name}</span>`
+    ).join('');
+    d.innerHTML=`<div class="pdot" style="background:var(--amber-mid)"></div><div class="pname">${it.name}<span class="pcat">${cat}</span>${supLinks2}</div><div class="pcurr">сейчас: ${s.val||'—'} ${unit}</div><span class="ptag ptag-a">Среднее</span>`;
     mEl.appendChild(d);
   });
   document.getElementById('cnt-low').textContent=lows.length;
@@ -1308,7 +1325,10 @@ function saveSuppliers() {
 function renderSuppliers() {
   const wrap = document.getElementById('sup-content');
   if (!wrap) return;
-  const filtered = supFilterCat === 'Все' ? suppliers : suppliers.filter(s => s.cat === supFilterCat);
+  const filtered = supFilterCat === 'Все' ? suppliers : suppliers.filter(s => {
+    const cats = Array.isArray(s.cats) ? s.cats : (s.cat ? [s.cat] : []);
+    return cats.includes(supFilterCat);
+  });
   const relMap = {ok:'sup-badge-ok',neutral:'sup-badge-neutral',bad:'sup-badge-bad'};
   const relLabel = {ok:'Надёжный',neutral:'Нейтральный',bad:'Ненадёжный'};
 
@@ -1329,7 +1349,7 @@ function renderSuppliers() {
     card.innerHTML = `
       <div class="sup-card-head">
         <div class="sup-card-title">${sup.name}</div>
-        <span class="sup-card-cat">${sup.cat}</span>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">${(Array.isArray(sup.cats)?sup.cats:(sup.cat?[sup.cat]:[])).map(c=>`<span class="sup-card-cat">${c}</span>`).join('')}</div>
       </div>
       <div class="sup-card-body">
         <div class="sup-field-row">
@@ -1366,7 +1386,11 @@ function openSupModal(idx) {
   document.getElementById('sup-edit-idx').value = isEdit ? idx : '';
   const sup = isEdit ? suppliers[idx] : {};
   document.getElementById('sf-name').value = sup.name||'';
-  document.getElementById('sf-cat').value = sup.cat||'Ингредиенты';
+  // Handle cats as array or string (backward compat)
+  const supCats = Array.isArray(sup.cats) ? sup.cats : (sup.cat ? [sup.cat] : []);
+  document.querySelectorAll('#sf-cats input[type=checkbox]').forEach(cb => {
+    cb.checked = supCats.includes(cb.value);
+  });
   document.getElementById('sf-reliability').value = sup.reliability||'ok';
   document.getElementById('sf-payment').value = sup.payment||'Наличные';
   document.getElementById('sf-defer').value = sup.defer||'';
@@ -1392,12 +1416,72 @@ function renderSupItemTags() {
   ).join('');
 }
 
+function getAllInventoryNames() {
+  const names = new Set();
+  Object.values(items).forEach(cat => cat.forEach(it => names.add(it.name)));
+  return Array.from(names).sort();
+}
+
+let suggestIdx = -1;
+
+function showSupSuggest(val) {
+  const box = document.getElementById('sf-suggest');
+  if (!val || val.length < 2) { box.style.display='none'; suggestIdx=-1; return; }
+  const all = getAllInventoryNames();
+  const matches = all.filter(n => n.toLowerCase().includes(val.toLowerCase()))
+                     .filter(n => !supEditItems.includes(n));
+  if (!matches.length) { box.style.display='none'; return; }
+  box.style.display='block';
+  suggestIdx = -1;
+  box.innerHTML = matches.slice(0,8).map((m,i) => {
+    const lo = m.toLowerCase(), vlo = val.toLowerCase();
+    const idx2 = lo.indexOf(vlo);
+    const highlighted = idx2 < 0 ? m : m.slice(0,idx2) + '<strong>' + m.slice(idx2, idx2+val.length) + '</strong>' + m.slice(idx2+val.length);
+    const escaped = m.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return '<div class="sup-suggest-item" data-val="' + m + '" onmousedown="selectSupSuggest(this.dataset.val)">' + highlighted + '</div>';
+  }).join('');
+}
+
+
+function selectSupSuggest(val) {
+  if (supEditItems.includes(val)) return;
+  supEditItems.push(val);
+  document.getElementById('sf-item-inp').value = '';
+  document.getElementById('sf-suggest').style.display = 'none';
+  suggestIdx = -1;
+  renderSupItemTags();
+}
+
+function handleSupKey(e) {
+  const box = document.getElementById('sf-suggest');
+  const items2 = box.querySelectorAll('.sup-suggest-item');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    suggestIdx = Math.min(suggestIdx+1, items2.length-1);
+    items2.forEach((el,i) => el.classList.toggle('active', i===suggestIdx));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    suggestIdx = Math.max(suggestIdx-1, -1);
+    items2.forEach((el,i) => el.classList.toggle('active', i===suggestIdx));
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (suggestIdx >= 0 && items2[suggestIdx]) {
+      selectSupSuggest(items2[suggestIdx].dataset.val);
+    } else {
+      addSupItem();
+    }
+  } else if (e.key === 'Escape') {
+    box.style.display='none';
+  }
+}
+
 function addSupItem() {
   const inp = document.getElementById('sf-item-inp');
   const val = inp.value.trim();
-  if (!val) return;
+  if (!val || supEditItems.includes(val)) { inp.value=''; return; }
   supEditItems.push(val);
   inp.value = '';
+  document.getElementById('sf-suggest').style.display='none';
   renderSupItemTags();
 }
 
@@ -1410,7 +1494,9 @@ function saveSupplier() {
   const name = document.getElementById('sf-name').value.trim();
   if (!name) { document.getElementById('sf-name').focus(); return; }
   const sup = {
-    name, cat: document.getElementById('sf-cat').value,
+    name,
+    cats: Array.from(document.querySelectorAll('#sf-cats input[type=checkbox]:checked')).map(cb=>cb.value),
+    cat: Array.from(document.querySelectorAll('#sf-cats input[type=checkbox]:checked')).map(cb=>cb.value).join(', ') || 'Прочие',
     reliability: document.getElementById('sf-reliability').value,
     payment: document.getElementById('sf-payment').value,
     defer: document.getElementById('sf-defer').value.trim(),
