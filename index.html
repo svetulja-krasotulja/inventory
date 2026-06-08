@@ -147,6 +147,58 @@ tr:hover td{background:#FAFAF8}
 .btn-tg:hover{background:#1a9bde}
 .btn-sm{font-size:12px;color:var(--text3);border-color:var(--border);padding:7px 12px}
 .print-only{display:none}
+/* SUPPLIERS */
+.sup-cats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.sup-cat-btn{padding:6px 14px;font-size:12px;border:.5px solid var(--border2);border-radius:20px;background:var(--bg3);color:var(--text2);cursor:pointer;font-family:inherit;transition:background .15s}
+.sup-cat-btn.active{background:#1D1D1B;color:#fff;border-color:#1D1D1B}
+.sup-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.sup-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden}
+.sup-card-head{padding:12px 14px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border)}
+.sup-card-title{font-size:14px;font-weight:500;color:var(--text);flex:1}
+.sup-card-cat{font-size:11px;padding:2px 8px;border-radius:10px;background:var(--bg2);color:var(--text2);white-space:nowrap}
+.sup-card-body{padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.sup-field{display:flex;flex-direction:column;gap:2px}
+.sup-field label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}
+.sup-field-val{font-size:13px;color:var(--text)}
+.sup-field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sup-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
+.sup-badge-ok{background:var(--green-bg);color:var(--green)}
+.sup-badge-bad{background:var(--red-bg);color:var(--red)}
+.sup-badge-neutral{background:var(--bg2);color:var(--text2)}
+.sup-card-foot{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:6px}
+.sup-edit-btn{font-size:12px;padding:5px 12px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text2);cursor:pointer;font-family:inherit}
+.sup-edit-btn:hover{background:var(--bg2);color:var(--text)}
+.sup-del-btn{font-size:12px;padding:5px 10px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--red);cursor:pointer;font-family:inherit}
+.sup-del-btn:hover{background:var(--red-bg)}
+.sup-add-btn{display:flex;align-items:center;gap:8px;padding:10px 16px;font-size:13px;border:1px dashed var(--border2);border-radius:var(--rl);background:transparent;color:var(--text2);cursor:pointer;font-family:inherit;width:100%;justify-content:center;transition:background .15s}
+.sup-add-btn:hover{background:var(--bg2);color:var(--text)}
+/* SUPPLIER MODAL */
+.sup-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;display:none;align-items:center;justify-content:center;padding:20px}
+.sup-modal.open{display:flex}
+.sup-modal-box{background:var(--bg3);border-radius:16px;max-width:560px;width:100%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.sup-modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.sup-modal-title{font-size:15px;font-weight:500}
+.sup-modal-body{padding:16px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:12px}
+.sup-modal-foot{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+.sup-form-group{display:flex;flex-direction:column;gap:4px}
+.sup-form-group label{font-size:11px;color:var(--text2);font-weight:500}
+.sup-form-input{padding:8px 10px;font-size:13px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--bg3);color:var(--text);font-family:inherit;width:100%}
+.sup-form-input:focus{outline:none;border-color:var(--blue)}
+.sup-form-select{padding:8px 10px;font-size:13px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--bg3);color:var(--text);font-family:inherit;width:100%}
+.sup-form-select:focus{outline:none;border-color:var(--blue)}
+.sup-form-textarea{padding:8px 10px;font-size:13px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--bg3);color:var(--text);font-family:inherit;width:100%;min-height:70px;resize:vertical;line-height:1.5}
+.sup-form-textarea:focus{outline:none;border-color:var(--blue)}
+.sup-form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sup-items-list{display:flex;flex-wrap:wrap;gap:6px;padding:6px 0}
+.sup-item-tag{display:flex;align-items:center;gap:4px;padding:3px 8px;background:var(--bg2);border-radius:10px;font-size:12px}
+.sup-item-tag button{border:none;background:transparent;cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0}
+.sup-item-tag button:hover{color:var(--red)}
+.sup-item-add{display:flex;gap:6px;margin-top:6px}
+.sup-item-add input{flex:1;padding:6px 10px;font-size:12px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--bg3);color:var(--text);font-family:inherit}
+.sup-item-add input:focus{outline:none;border-color:var(--blue)}
+.sup-item-add button{padding:6px 12px;font-size:12px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--bg3);color:var(--text);cursor:pointer;font-family:inherit}
+.sup-item-add button:hover{background:var(--bg2)}
+.sup-empty{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px}
 .pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid #C8C6BC;background:transparent;transition:background .15s,border-color .15s}
 .pin-dot.filled{background:#1D1D1B;border-color:#1D1D1B}
 .pin-dot.error{background:#E24B4A;border-color:#E24B4A}
@@ -302,6 +354,97 @@ tr:hover td{background:#FAFAF8}
   </div>
 </div>
 
+<!-- SUPPLIER MODAL -->
+<div class="sup-modal" id="sup-modal">
+  <div class="sup-modal-box">
+    <div class="sup-modal-head">
+      <div class="sup-modal-title" id="sup-modal-title">Добавить поставщика</div>
+      <button class="modal-close" onclick="closeSupModal()">×</button>
+    </div>
+    <div class="sup-modal-body">
+      <input type="hidden" id="sup-edit-idx" value="">
+      <div class="sup-form-row">
+        <div class="sup-form-group">
+          <label>Название *</label>
+          <input class="sup-form-input" id="sf-name" placeholder="Название компании">
+        </div>
+        <div class="sup-form-group">
+          <label>Категория</label>
+          <select class="sup-form-select" id="sf-cat">
+            <option>Ингредиенты</option>
+            <option>Снабжение</option>
+            <option>Упаковка</option>
+            <option>Типография</option>
+            <option>Рабочая одежда</option>
+            <option>Дизайн</option>
+            <option>Прочие</option>
+          </select>
+        </div>
+      </div>
+      <div class="sup-form-row">
+        <div class="sup-form-group">
+          <label>Надёжность</label>
+          <select class="sup-form-select" id="sf-reliability">
+            <option value="ok">Надёжный</option>
+            <option value="neutral">Нейтральный</option>
+            <option value="bad">Ненадёжный</option>
+          </select>
+        </div>
+        <div class="sup-form-group">
+          <label>Тип оплаты</label>
+          <select class="sup-form-select" id="sf-payment">
+            <option>Наличные</option>
+            <option>Карта</option>
+            <option>Счёт (invoice)</option>
+            <option>Предоплата</option>
+            <option>Смешанный</option>
+          </select>
+        </div>
+      </div>
+      <div class="sup-form-row">
+        <div class="sup-form-group">
+          <label>Отсрочка платежа</label>
+          <input class="sup-form-input" id="sf-defer" placeholder="Напр. 14 дней или Нет">
+        </div>
+        <div class="sup-form-group">
+          <label>Минимальный заказ</label>
+          <input class="sup-form-input" id="sf-minorder" placeholder="Напр. 5000 RSD">
+        </div>
+      </div>
+      <div class="sup-form-group">
+        <label>Адрес</label>
+        <input class="sup-form-input" id="sf-address" placeholder="Адрес / город">
+      </div>
+      <div class="sup-form-row">
+        <div class="sup-form-group">
+          <label>Контакт (менеджер)</label>
+          <input class="sup-form-input" id="sf-contact" placeholder="Имя, телефон, email">
+        </div>
+        <div class="sup-form-group">
+          <label>Сайт / ссылка</label>
+          <input class="sup-form-input" id="sf-url" placeholder="https://...">
+        </div>
+      </div>
+      <div class="sup-form-group">
+        <label>Что закупаем (позиции)</label>
+        <div class="sup-items-list" id="sf-items-list"></div>
+        <div class="sup-item-add">
+          <input id="sf-item-inp" placeholder="Название позиции..." onkeydown="if(event.key==='Enter')addSupItem()">
+          <button onclick="addSupItem()">+ Добавить</button>
+        </div>
+      </div>
+      <div class="sup-form-group">
+        <label>Комментарий</label>
+        <textarea class="sup-form-textarea" id="sf-comment" placeholder="Заметки, условия, особенности..."></textarea>
+      </div>
+    </div>
+    <div class="sup-modal-foot">
+      <button class="btn" onclick="closeSupModal()">Отмена</button>
+      <button class="btn btn-dark" onclick="saveSupplier()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOPBAR -->
 <div class="topbar">
   <div class="tbar-title">🍞 BreadVenture — Инвентаризация</div>
@@ -332,6 +475,13 @@ tr:hover td{background:#FAFAF8}
 </div>
 
 <script>
+// ==================== SUPPLIERS STATE ====================
+let suppliers = [];
+let supFilterCat = 'Все';
+let supEditItems = [];
+const SUP_CATS = ['Все','Ингредиенты','Снабжение','Упаковка','Типография','Рабочая одежда','Дизайн','Прочие'];
+const SUP_LS = 'bv_suppliers_v1';
+
 // ==================== DATA ====================
 const DEFAULT_ITEMS = {
   "Ингредиенты пекарни": [
@@ -617,12 +767,16 @@ function buildTabs(cats) {
   p.className = 'tab'; p.textContent = '🛒 Закупки'; p.dataset.tab = '__purchase';
   p.onclick = () => setActiveTab('__purchase');
   row.appendChild(p);
-  // Manager editor
+  // Manager-only tabs
   if (currentRole === 'manager') {
     const m = document.createElement('button');
     m.className = 'tab'; m.textContent = '⚙️ Списки'; m.dataset.tab = '__editor';
     m.onclick = () => setActiveTab('__editor');
     row.appendChild(m);
+    const s = document.createElement('button');
+    s.className = 'tab'; s.textContent = '🏪 Поставщики'; s.dataset.tab = '__suppliers';
+    s.onclick = () => setActiveTab('__suppliers');
+    row.appendChild(s);
   }
 }
 
@@ -637,6 +791,14 @@ function buildSections(cats) {
     sec.innerHTML = buildTableHTML(cat);
     wrap.appendChild(sec);
   });
+  // Suppliers section (manager only)
+  if (currentRole === 'manager') {
+    const ss2 = document.createElement('div');
+    ss2.id = 'sec-__suppliers'; ss2.className = 'content'; ss2.style.display = 'none';
+    ss2.innerHTML = '<div id="sup-content"></div>';
+    wrap.appendChild(ss2);
+  }
+
   // Purchase section
   const ps = document.createElement('div');
   ps.id = 'sec-__purchase'; ps.className = 'content'; ps.style.display = 'none';
@@ -784,8 +946,11 @@ async function saveItemsToSheets() {
   if (!SCRIPT_URL) return;
   setSyncPill('busy','💾 Сохраняю списки...');
   try {
-    const url = SCRIPT_URL+'?action=setItems&data='+encodeURIComponent(JSON.stringify(items));
-    const r = await fetch(url); const d = await r.json();
+    const r = await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'action=setItems&data='+encodeURIComponent(JSON.stringify(items))
+    }); const d = await r.json();
     if (d.status==='ok') {
       setSyncPill('ok','✓ Списки сохранены');
       const cats = ROLE_CATS[currentRole];
@@ -843,7 +1008,9 @@ function buildPurchaseList() {
   if(!lows.length) lEl.innerHTML='<div class="pempty">Всё в норме ✓</div>';
   else lows.forEach(({it,cat,i,s})=>{
     const unit=s.unit||it.unit,d=document.createElement('div');d.className='pitem';
-    d.innerHTML=`<div class="pdot" style="background:${s.crit?'var(--red-mid)':'var(--amber-mid)'}"></div><div class="pname">${it.name}<span class="pcat">${cat}</span></div><div class="pcurr">сейчас: ${s.val||'—'} ${unit}</div>${s.crit?'<span class="ptag ptag-r">Критично</span>':''}`;
+    const sup=suppliers.find(sv=>sv.items&&sv.items.some(si=>si.toLowerCase()===it.name.toLowerCase()));
+    const supLink=sup?(sup.url?`<a href="${sup.url}" target="_blank" style="font-size:11px;color:var(--blue);margin-left:4px">↗ ${sup.name}</a>`:`<span style="font-size:11px;color:var(--text3);margin-left:4px">${sup.name}</span>`):'';
+    d.innerHTML=`<div class="pdot" style="background:${s.crit?'var(--red-mid)':'var(--amber-mid)'}"></div><div class="pname">${it.name}<span class="pcat">${cat}</span>${supLink}</div><div class="pcurr">сейчас: ${s.val||'—'} ${unit}</div>${s.crit?'<span class="ptag ptag-r">Критично</span>':''}`;
     lEl.appendChild(d);
   });
   if(!mids.length) mEl.innerHTML='<div class="pempty">Нет позиций</div>';
@@ -899,7 +1066,11 @@ function setActiveTab(cat) {
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===cat));
   document.querySelectorAll('[id^="sec-"]').forEach(s=>s.style.display='none');
   const sec = document.getElementById('sec-'+slugCat(cat));
-  if (sec) { sec.style.display=''; if(cat!=='__purchase'&&cat!=='__editor') renderTable(cat); }
+  if (sec) {
+    sec.style.display='';
+    if(cat!=='__purchase'&&cat!=='__editor'&&cat!=='__suppliers') renderTable(cat);
+    if(cat==='__suppliers') renderSuppliers();
+  }
 }
 
 // ==================== SHEETS ====================
@@ -911,8 +1082,11 @@ async function saveToSheets() {
   setSyncPill('busy','💾 Сохраняю...');
   document.getElementById('btn-save').disabled = true;
   try {
-    const url=SCRIPT_URL+'?action=save&data='+encodeURIComponent(JSON.stringify(payload));
-    const r=await fetch(url); const d=await r.json();
+    const r=await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'action=save&data='+encodeURIComponent(JSON.stringify(payload))
+    }); const d=await r.json();
     if(d.status==='ok') setSyncPill('ok','✓ Сохранено в Sheets');
     else setSyncPill('err','⚠ '+d.message);
   } catch(e) { setSyncPill('err','⚠ '+e.message); }
@@ -925,8 +1099,11 @@ async function sendToTelegram() {
   setSyncPill('busy','✈️ Отправляю...');
   document.getElementById('btn-tg').disabled = true;
   try {
-    const url=SCRIPT_URL+'?action=telegram&data='+encodeURIComponent(JSON.stringify(payload));
-    const r=await fetch(url); const d=await r.json();
+    const r=await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'action=telegram&data='+encodeURIComponent(JSON.stringify(payload))
+    }); const d=await r.json();
     if(d.status==='ok') setSyncPill('ok','✓ Отправлено в Telegram');
     else setSyncPill('err','⚠ '+d.message);
   } catch(e) { setSyncPill('err','⚠ '+e.message); }
@@ -1115,8 +1292,149 @@ function logout() {
 
 // ==================== INIT ====================
 document.getElementById('inv-date').value = new Date().toISOString().split('T')[0];
+loadSuppliers();
 const savedUrl = localStorage.getItem(LS_URL);
 if(savedUrl) { SCRIPT_URL=savedUrl; document.getElementById('setup-overlay').classList.remove('open'); showLogin(); }
+
+// ==================== SUPPLIERS ====================
+function loadSuppliers() {
+  try { suppliers = JSON.parse(localStorage.getItem(SUP_LS)||'[]'); } catch(e) { suppliers = []; }
+}
+
+function saveSuppliers() {
+  try { localStorage.setItem(SUP_LS, JSON.stringify(suppliers)); } catch(e) {}
+}
+
+function renderSuppliers() {
+  const wrap = document.getElementById('sup-content');
+  if (!wrap) return;
+  const filtered = supFilterCat === 'Все' ? suppliers : suppliers.filter(s => s.cat === supFilterCat);
+  const relMap = {ok:'sup-badge-ok',neutral:'sup-badge-neutral',bad:'sup-badge-bad'};
+  const relLabel = {ok:'Надёжный',neutral:'Нейтральный',bad:'Ненадёжный'};
+
+  wrap.innerHTML = `
+    <div class="sup-cats">${SUP_CATS.map(c=>`<button class="sup-cat-btn${c===supFilterCat?' active':''}" onclick="setSupCat('${c}')">${c}</button>`).join('')}</div>
+    <div class="sup-grid" id="sup-grid"></div>
+    <button class="sup-add-btn" onclick="openSupModal()" style="margin-top:12px">+ Добавить поставщика</button>`;
+
+  const grid = document.getElementById('sup-grid');
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="sup-empty">Поставщиков пока нет.<br>Нажми «+ Добавить поставщика»</div>';
+    return;
+  }
+  filtered.forEach((sup, idx) => {
+    const realIdx = suppliers.indexOf(sup);
+    const card = document.createElement('div');
+    card.className = 'sup-card';
+    card.innerHTML = `
+      <div class="sup-card-head">
+        <div class="sup-card-title">${sup.name}</div>
+        <span class="sup-card-cat">${sup.cat}</span>
+      </div>
+      <div class="sup-card-body">
+        <div class="sup-field-row">
+          <div class="sup-field"><label>Надёжность</label><span class="sup-badge ${relMap[sup.reliability]||'sup-badge-neutral'}">${relLabel[sup.reliability]||'—'}</span></div>
+          <div class="sup-field"><label>Оплата</label><div class="sup-field-val">${sup.payment||'—'}</div></div>
+        </div>
+        <div class="sup-field-row">
+          <div class="sup-field"><label>Отсрочка</label><div class="sup-field-val">${sup.defer||'—'}</div></div>
+          <div class="sup-field"><label>Мин. заказ</label><div class="sup-field-val">${sup.minorder||'—'}</div></div>
+        </div>
+        ${sup.contact?`<div class="sup-field"><label>Контакт</label><div class="sup-field-val">${sup.contact}</div></div>`:''}
+        ${sup.address?`<div class="sup-field"><label>Адрес</label><div class="sup-field-val">${sup.address}</div></div>`:''}
+        ${sup.url?`<div class="sup-field"><label>Сайт</label><div class="sup-field-val"><a href="${sup.url}" target="_blank" style="color:var(--blue)">${sup.url}</a></div></div>`:''}
+        ${sup.items&&sup.items.length?`<div class="sup-field"><label>Закупаем</label><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px">${sup.items.map(i=>`<span class="sup-badge sup-badge-neutral">${i}</span>`).join('')}</div></div>`:''}
+        ${sup.comment?`<div class="sup-field"><label>Комментарий</label><div class="sup-field-val" style="color:var(--text2);font-size:12px">${sup.comment}</div></div>`:''}
+      </div>
+      <div class="sup-card-foot">
+        <button class="sup-edit-btn" onclick="openSupModal(${realIdx})">✏️ Редактировать</button>
+        <button class="sup-del-btn" onclick="delSupplier(${realIdx})">Удалить</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function setSupCat(cat) {
+  supFilterCat = cat;
+  renderSuppliers();
+}
+
+function openSupModal(idx) {
+  const modal = document.getElementById('sup-modal');
+  const isEdit = idx !== undefined;
+  document.getElementById('sup-modal-title').textContent = isEdit ? 'Редактировать поставщика' : 'Добавить поставщика';
+  document.getElementById('sup-edit-idx').value = isEdit ? idx : '';
+  const sup = isEdit ? suppliers[idx] : {};
+  document.getElementById('sf-name').value = sup.name||'';
+  document.getElementById('sf-cat').value = sup.cat||'Ингредиенты';
+  document.getElementById('sf-reliability').value = sup.reliability||'ok';
+  document.getElementById('sf-payment').value = sup.payment||'Наличные';
+  document.getElementById('sf-defer').value = sup.defer||'';
+  document.getElementById('sf-minorder').value = sup.minorder||'';
+  document.getElementById('sf-address').value = sup.address||'';
+  document.getElementById('sf-contact').value = sup.contact||'';
+  document.getElementById('sf-url').value = sup.url||'';
+  document.getElementById('sf-comment').value = sup.comment||'';
+  supEditItems = sup.items ? [...sup.items] : [];
+  renderSupItemTags();
+  modal.classList.add('open');
+  setTimeout(()=>document.getElementById('sf-name').focus(), 100);
+}
+
+function closeSupModal() {
+  document.getElementById('sup-modal').classList.remove('open');
+}
+
+function renderSupItemTags() {
+  const list = document.getElementById('sf-items-list');
+  list.innerHTML = supEditItems.map((item,i)=>
+    `<span class="sup-item-tag">${item}<button onclick="removeSupItem(${i})">×</button></span>`
+  ).join('');
+}
+
+function addSupItem() {
+  const inp = document.getElementById('sf-item-inp');
+  const val = inp.value.trim();
+  if (!val) return;
+  supEditItems.push(val);
+  inp.value = '';
+  renderSupItemTags();
+}
+
+function removeSupItem(i) {
+  supEditItems.splice(i,1);
+  renderSupItemTags();
+}
+
+function saveSupplier() {
+  const name = document.getElementById('sf-name').value.trim();
+  if (!name) { document.getElementById('sf-name').focus(); return; }
+  const sup = {
+    name, cat: document.getElementById('sf-cat').value,
+    reliability: document.getElementById('sf-reliability').value,
+    payment: document.getElementById('sf-payment').value,
+    defer: document.getElementById('sf-defer').value.trim(),
+    minorder: document.getElementById('sf-minorder').value.trim(),
+    address: document.getElementById('sf-address').value.trim(),
+    contact: document.getElementById('sf-contact').value.trim(),
+    url: document.getElementById('sf-url').value.trim(),
+    comment: document.getElementById('sf-comment').value.trim(),
+    items: [...supEditItems]
+  };
+  const idxStr = document.getElementById('sup-edit-idx').value;
+  if (idxStr !== '') suppliers[parseInt(idxStr)] = sup;
+  else suppliers.push(sup);
+  saveSuppliers();
+  closeSupModal();
+  renderSuppliers();
+}
+
+function delSupplier(idx) {
+  if (!confirm(`Удалить поставщика "${suppliers[idx].name}"?`)) return;
+  suppliers.splice(idx,1);
+  saveSuppliers();
+  renderSuppliers();
+}
 
 function exportPDF() {
   const date = document.getElementById('inv-date').value || '—';
