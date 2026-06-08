@@ -494,6 +494,7 @@ tr:hover td{background:#FAFAF8}
   <button class="btn" onclick="exportPDF()">⬇ PDF</button>
   <button class="btn" onclick="window.print()">🖨</button>
   <button class="btn" onclick="newInv()">↺ Новая</button>
+  <button class="btn" id="btn-save-norms" onclick="saveAllNorms()" style="color:var(--green);border-color:var(--green-mid)">✓ Сохранить нормы</button>
   <button class="btn btn-sm" onclick="logout()" style="margin-left:auto">🚪 Выйти</button>
 </div>
 
@@ -1253,6 +1254,30 @@ function badge(s) {
 }
 function slugCat(cat) { return cat.replace(/[^a-zA-Zа-яА-Я0-9]/g,'_'); }
 function setSyncPill(cls,txt) { const p=document.getElementById('sync-pill'); p.textContent=txt; p.className='sync-pill '+(cls||''); }
+
+function saveAllNorms() {
+  // Save all current threshold values from inputs to localStorage
+  const cats = ROLE_CATS[currentRole] || [];
+  cats.forEach(cat => {
+    if (!thresh[cat]) thresh[cat] = {};
+    const its = items[cat] || [];
+    its.forEach((item, i) => {
+      if (!thresh[cat][i]) thresh[cat][i] = {};
+      thresh[cat][i].ok = getThresh(cat, i, 'ok');
+      thresh[cat][i].mid = getThresh(cat, i, 'mid');
+      thresh[cat][i].low = getThresh(cat, i, 'low');
+    });
+  });
+  saveThreshLocal();
+  saveCritLocal();
+  // Visual feedback
+  const btn = document.getElementById('btn-save-norms');
+  if (btn) {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Нормы сохранены!';
+    setTimeout(() => btn.textContent = orig, 2000);
+  }
+}
 
 function saveThreshLocal() {
   try { localStorage.setItem('bv_thresh_v1', JSON.stringify(thresh)); } catch(e) {}
