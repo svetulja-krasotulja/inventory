@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Инвентаризация — BreadVenture</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#FAFAF8;--bg2:#F4F3E9;--bg3:#fff;
+  --text:#1D1D1B;--text2:#6B6B68;--text3:#A0A09D;
+  --border:#E0DED6;--border2:#C8C6BC;
+  --green:#3B6D11;--green-bg:#EAF3DE;--green-mid:#639922;
+  --amber:#854F0B;--amber-bg:#FAEEDA;--amber-mid:#BA7517;
+  --red:#A32D2D;--red-bg:#FCEBEB;--red-mid:#E24B4A;
+  --blue:#47A2DA;
+  --r:8px;--rl:12px;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh}
+
+/* TOPBAR */
+.topbar{background:#1D1D1B;padding:10px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:200}
+.tbar-title{color:#fff;font-size:15px;font-weight:500;flex-shrink:0}
+.tbar-meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.ml{display:flex;flex-direction:column;gap:2px}
+.ml label{color:#888;font-size:10px;text-transform:uppercase;letter-spacing:.4px}
+.mi{background:#2D2D2B;border:0.5px solid #444;border-radius:6px;color:#fff;font-size:13px;padding:5px 10px;font-family:inherit}
+.mi:focus{outline:none;border-color:var(--blue)}
+.role-badge{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:500}
+.rb-baker{background:#FAEEDA;color:#854F0B}
+.rb-barista{background:#E6F1FB;color:#185FA5}
+.rb-manager{background:#EAF3DE;color:#3B6D11}
+.sync-pill{font-size:11px;padding:5px 10px;border-radius:6px;border:0.5px solid #444;color:#888;background:#2D2D2B;white-space:nowrap;cursor:default}
+.sync-pill.ok{color:#5CA832;border-color:#3B6D11}
+.sync-pill.err{color:#E24B4A;border-color:#A32D2D}
+.sync-pill.busy{color:var(--blue);border-color:var(--blue)}
+
+/* PROGRESS BAR */
+.progress-bar-wrap{background:#2D2D2B;height:3px;width:100%}
+.progress-bar-fill{height:3px;background:var(--blue);transition:width .3s}
+
+/* SUMMARY */
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;padding:12px 20px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.scard{background:var(--bg3);border-radius:var(--r);padding:9px 12px;border:.5px solid var(--border)}
+.scard-lbl{font-size:11px;color:var(--text2);margin-bottom:3px}
+.scard-val{font-size:20px;font-weight:600;color:var(--text)}
+.v-green{color:var(--green-mid)}.v-amber{color:var(--amber-mid)}.v-red{color:var(--red-mid)}.v-gray{color:var(--text3)}
+
+/* TABS */
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg3);padding:0 20px;overflow-x:auto}
+.tab{font-size:13px;padding:10px 16px;cursor:pointer;border:none;background:transparent;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;font-family:inherit;font-weight:500}
+.tab.active{color:var(--text);border-bottom-color:#1D1D1B}
+.tab:hover:not(.active){color:var(--text)}
+
+/* CONTENT */
+.content{padding:14px 20px;max-width:1200px;margin:0 auto}
+
+/* INSTRUCTIONS */
+.instr{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);margin-bottom:14px;overflow:hidden}
+.instr-h{padding:11px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:500;user-select:none}
+.instr-h:hover{background:var(--border)}
+.instr-b{padding:0 16px 12px;display:none;font-size:13px;color:var(--text2);line-height:1.8}
+.instr-b.open{display:block}
+.instr-b ul{padding-left:18px}
+.instr-b li{margin-bottom:3px}
+.instr-b strong{color:var(--text);font-weight:500}
+
+/* LEGEND */
+.legend{display:flex;gap:14px;margin-bottom:12px;flex-wrap:wrap}
+.leg{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2)}
+.ldot{width:9px;height:9px;border-radius:50%}
+
+/* TABLE */
+.twrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--rl);background:var(--bg3)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--bg2);padding:8px 10px;text-align:left;font-weight:500;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:6px 8px;border-bottom:.5px solid var(--border);vertical-align:middle;color:var(--text)}
+tr:last-child td{border-bottom:none}
+tr.rc td:first-child{border-left:3px solid var(--red-mid);padding-left:6px}
+tr.rn td:first-child{border-left:3px solid transparent;padding-left:6px}
+tr:hover td{background:#FAFAF8}
+.tnum{width:66px;padding:4px 6px;font-size:13px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);text-align:right;font-family:inherit}
+.tnum:focus{outline:none;border-color:var(--blue)}
+.tnum.hl-low{border-color:var(--red-mid);background:var(--red-bg)}
+.tnum.hl-mid{border-color:var(--amber-mid);background:var(--amber-bg)}
+.tnum[readonly]{background:var(--bg2);color:var(--text2);border-color:transparent;cursor:default}
+.tsel{font-size:12px;padding:3px 6px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);width:62px;font-family:inherit}
+.tsel:focus{outline:none;border-color:var(--blue)}
+.tnote{width:100%;font-size:12px;padding:3px 6px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);font-family:inherit}
+.tnote:focus{outline:none;border-color:var(--blue)}
+.sbadge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap}
+.s-ok{background:var(--green-bg);color:var(--green)}.s-mid{background:var(--amber-bg);color:var(--amber)}.s-low{background:var(--red-bg);color:var(--red)}.s-none{background:var(--bg2);color:var(--text3)}
+.ctog{cursor:pointer;width:34px;height:19px;border-radius:10px;border:.5px solid var(--border2);background:var(--bg2);position:relative;transition:background .2s;flex-shrink:0}
+.ctog.on{background:var(--red-mid);border-color:var(--red-mid)}
+.ctog::after{content:'';position:absolute;top:2.5px;left:2.5px;width:12px;height:12px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.ctog.on::after{left:17px}
+.ctog.disabled{opacity:.4;cursor:default;pointer-events:none}
+
+/* PURCHASE */
+.psec{margin-bottom:14px;border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;background:var(--bg3)}
+.ph{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:500;border-bottom:1px solid var(--border);background:var(--bg2)}
+.pcnt{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500}
+.pitem{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:.5px solid var(--border);font-size:13px}
+.pitem:last-child{border-bottom:none}
+.pdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.pname{flex:1;color:var(--text)}
+.pcat{font-size:11px;color:var(--text3);margin-left:4px}
+.pcurr{font-size:12px;color:var(--text2);white-space:nowrap}
+.ptag{font-size:11px;padding:2px 7px;border-radius:10px;white-space:nowrap}
+.ptag-r{background:var(--red-bg);color:var(--red)}.ptag-a{background:var(--amber-bg);color:var(--amber)}
+.pempty{padding:14px;text-align:center;font-size:13px;color:var(--text3)}
+.wish-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rl);padding:14px;margin-top:14px}
+.wish-title{font-size:13px;font-weight:500;margin-bottom:8px}
+.wish-ta{width:100%;min-height:80px;padding:10px;font-size:13px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--bg);color:var(--text);font-family:inherit;resize:vertical;line-height:1.6}
+.wish-ta:focus{outline:none;border-color:var(--blue)}
+
+/* MANAGER EDITOR */
+.editor-wrap{margin-top:0}
+.ed-cats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.ed-cat-btn{padding:6px 14px;font-size:12px;border:.5px solid var(--border2);border-radius:20px;background:var(--bg3);color:var(--text2);cursor:pointer;font-family:inherit}
+.ed-cat-btn.active{background:#1D1D1B;color:#fff;border-color:#1D1D1B}
+.ed-table-wrap{border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;background:var(--bg3)}
+.ed-table{width:100%;border-collapse:collapse;font-size:13px}
+.ed-table th{background:var(--bg2);padding:8px 10px;text-align:left;font-weight:500;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border)}
+.ed-table td{padding:5px 8px;border-bottom:.5px solid var(--border);vertical-align:middle}
+.ed-table tr:last-child td{border-bottom:none}
+.ed-inp{width:100%;padding:4px 7px;font-size:13px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);font-family:inherit}
+.ed-inp:focus{outline:none;border-color:var(--blue)}
+.ed-num{width:64px;padding:4px 6px;font-size:13px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);text-align:right;font-family:inherit}
+.ed-num:focus{outline:none;border-color:var(--blue)}
+.ed-sel{font-size:12px;padding:3px 6px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);width:60px;font-family:inherit}
+.del-btn{width:26px;height:26px;border-radius:50%;border:.5px solid var(--border2);background:transparent;color:var(--text3);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+.del-btn:hover{background:var(--red-bg);color:var(--red);border-color:var(--red-mid)}
+.add-row-btn{display:flex;align-items:center;gap:6px;margin-top:10px;padding:7px 14px;font-size:13px;border:.5px solid var(--border2);border-radius:var(--r);background:var(--bg3);color:var(--text2);cursor:pointer;font-family:inherit}
+.add-row-btn:hover{background:var(--bg2);color:var(--text)}
+.save-items-btn{margin-top:12px;padding:9px 20px;font-size:13px;font-weight:500;background:#1D1D1B;color:#fff;border:none;border-radius:var(--r);cursor:pointer;font-family:inherit}
+.save-items-btn:hover{background:#333}
+
+/* ACTIONS */
+.actions{display:flex;gap:8px;flex-wrap:wrap;padding:14px 20px;border-top:1px solid var(--border);background:var(--bg3);position:sticky;bottom:0;z-index:100}
+.btn{padding:8px 16px;font-size:13px;border:1px solid var(--border2);border-radius:var(--r);background:var(--bg3);color:var(--text);cursor:pointer;font-family:inherit;font-weight:500;display:flex;align-items:center;gap:5px;transition:background .15s;white-space:nowrap}
+.btn:hover{background:var(--bg2)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-dark{background:#1D1D1B;color:#fff;border-color:#1D1D1B}
+.btn-dark:hover{background:#333}
+.btn-tg{background:#2AABEE;color:#fff;border-color:#2AABEE}
+.btn-tg:hover{background:#1a9bde}
+.btn-sm{font-size:12px;color:var(--text3);border-color:var(--border);padding:7px 12px}
+.print-only{display:none}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid #C8C6BC;background:transparent;transition:background .15s,border-color .15s}
+.pin-dot.filled{background:#1D1D1B;border-color:#1D1D1B}
+.pin-dot.error{background:#E24B4A;border-color:#E24B4A}
+.pin-key{padding:14px;font-size:18px;font-weight:500;border:1px solid #E0DED6;border-radius:10px;background:#fff;cursor:pointer;font-family:inherit;transition:background .1s,transform .1s;color:#1D1D1B}
+.pin-key:hover{background:#F4F3E9}
+.pin-key:active{transform:scale(.94);background:#E0DED6}
+.pin-key-del{font-size:16px;color:#6B6B68}
+.pin-key-ok{background:#1D1D1B;color:#fff;border-color:#1D1D1B}
+.pin-key-ok:hover{background:#333}
+.pin-key-ok:disabled{opacity:.35;cursor:not-allowed}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg3);border-radius:16px;padding:0;max-width:560px;width:100%;max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-size:15px;font-weight:500}
+.modal-close{width:28px;height:28px;border-radius:50%;border:.5px solid var(--border2);background:transparent;cursor:pointer;font-size:16px;color:var(--text2);display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:var(--bg2)}
+.modal-body{padding:16px 20px;overflow-y:auto;flex:1}
+.hist-item{padding:10px 0;border-bottom:.5px solid var(--border);display:flex;align-items:center;gap:12px}
+.hist-item:last-child{border-bottom:none}
+.hist-dot{width:8px;height:8px;border-radius:50%;background:var(--green-mid);flex-shrink:0}
+.hist-who{font-size:13px;font-weight:500;flex:1}
+.hist-role{font-size:11px;padding:2px 8px;border-radius:10px;background:var(--bg2);color:var(--text2)}
+.hist-date{font-size:12px;color:var(--text2)}
+.hist-empty{font-size:13px;color:var(--text3);text-align:center;padding:20px 0}
+
+/* LOGIN OVERLAY */
+.login-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
+.login-box{background:#fff;border-radius:16px;padding:32px;max-width:440px;width:100%}
+.login-box h2{font-size:20px;font-weight:600;margin-bottom:6px;color:#1D1D1B}
+.login-box p{font-size:13px;color:#6B6B68;margin-bottom:22px}
+.login-name{width:100%;padding:10px 12px;font-size:14px;border:1px solid #C8C6BC;border-radius:8px;margin-bottom:14px;font-family:inherit}
+.login-name:focus{outline:none;border-color:#47A2DA}
+.role-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px}
+.role-card{border:1.5px solid var(--border);border-radius:10px;padding:14px 10px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+.role-card:hover{border-color:var(--border2);background:var(--bg2)}
+.role-card.sel{border-color:#1D1D1B;background:#1D1D1B}
+.role-card.sel .rc-title{color:#fff}.role-card.sel .rc-sub{color:#aaa}
+.rc-icon{font-size:24px;margin-bottom:6px}
+.rc-title{font-size:13px;font-weight:500;color:var(--text)}
+.rc-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.login-btn{width:100%;padding:12px;font-size:14px;font-weight:500;background:#1D1D1B;color:#fff;border:none;border-radius:8px;cursor:pointer}
+.login-btn:hover{background:#333}
+.login-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* SETUP OVERLAY */
+.setup-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2000;display:none;align-items:center;justify-content:center;padding:20px}
+.setup-overlay.open{display:flex}
+.setup-box{background:#fff;border-radius:16px;padding:30px;max-width:500px;width:100%}
+.setup-box h3{font-size:17px;font-weight:600;margin-bottom:8px}
+.setup-box p{font-size:13px;color:#6B6B68;margin-bottom:16px;line-height:1.7}
+.setup-box ol{font-size:13px;color:#1D1D1B;padding-left:18px;margin-bottom:16px;line-height:2}
+.setup-box code{background:#F4F3E9;padding:2px 6px;border-radius:4px;font-size:11px;font-family:monospace}
+.setup-inp{width:100%;padding:10px;font-size:13px;border:1px solid #C8C6BC;border-radius:8px;margin-bottom:10px;font-family:inherit}
+.setup-inp:focus{outline:none;border-color:#47A2DA}
+.setup-err{font-size:12px;color:#A32D2D;margin-bottom:10px;display:none}
+.setup-btn{width:100%;padding:12px;font-size:14px;font-weight:500;background:#1D1D1B;color:#fff;border:none;border-radius:8px;cursor:pointer}
+.setup-btn:hover{background:#333}
+
+@media(max-width:600px){
+  .topbar{padding:8px 12px}.content{padding:10px 12px}.summary{padding:10px 12px}.tabs{padding:0 12px}.actions{padding:10px 12px}
+  th,td{padding:5px 6px;font-size:12px}.role-grid{grid-template-columns:1fr 1fr 1fr;gap:6px}.rc-icon{font-size:18px}.rc-title{font-size:12px}
+}
+@media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  .topbar,.tabs,.actions,.modal-overlay,.login-overlay,.setup-overlay,.del-btn,.instr,.ctog,.tsel,.tnote,.progress-bar-wrap{display:none!important}
+  body{background:#fff;font-size:11px}
+  .content{display:block!important;padding:8px 12px;max-width:100%}
+  .summary{background:#F4F3E9!important;border:none;padding:8px 12px;gap:6px}
+  .scard{border:0.5px solid #E0DED6;padding:6px 10px}
+  .scard-val{font-size:16px}
+  .twrap{border:0.5px solid #C8C6BC;border-radius:4px}
+  table{font-size:10px}
+  th{background:#F4F3E9!important;font-size:9px;padding:5px 6px}
+  td{padding:4px 6px}
+  .tnum{border:none;background:transparent!important;text-align:right;width:auto}
+  .tnum.hl-low{background:#FCEBEB!important;border-radius:3px;padding:2px 4px}
+  .tnum.hl-mid{background:#FAEEDA!important;border-radius:3px;padding:2px 4px}
+  .sbadge.s-ok{background:#EAF3DE!important;color:#3B6D11!important}
+  .sbadge.s-mid{background:#FAEEDA!important;color:#854F0B!important}
+  .sbadge.s-low{background:#FCEBEB!important;color:#A32D2D!important}
+  tr.rc td:first-child{border-left:3px solid #E24B4A!important}
+  .psec{border:0.5px solid #C8C6BC;border-radius:4px;margin-bottom:8px}
+  .ph{background:#F4F3E9!important;padding:6px 10px}
+  .pitem{padding:5px 10px;font-size:10px}
+  .wish-box{border:0.5px solid #C8C6BC;border-radius:4px;padding:8px 10px}
+  .print-only{display:block!important}
+}
+</style>
+</head>
+<body>
+
+<!-- SETUP OVERLAY -->
+<div class="setup-overlay open" id="setup-overlay">
+  <div class="setup-box">
+    <h3>🍞 BreadVenture — Подключение</h3>
+    <p>Вставь URL Apps Script. Это делается один раз.</p>
+    <ol>
+      <li>Открой <a href="https://script.google.com" target="_blank">script.google.com</a> → New project</li>
+      <li>Вставь код из <code>appsscript.gs</code>, вбей токен бота и chat_id закупок</li>
+      <li>Deploy → New deployment → Web app → Anyone → Deploy</li>
+      <li>Скопируй URL деплоя</li>
+    </ol>
+    <input type="url" class="setup-inp" id="script-url" placeholder="https://script.google.com/macros/s/.../exec">
+    <div class="setup-err" id="setup-err">Не удалось подключиться. Проверь URL и доступ (Anyone).</div>
+    <button class="setup-btn" onclick="testScript()">Подключить →</button>
+  </div>
+</div>
+
+<!-- PIN OVERLAY -->
+<div class="login-overlay" id="login-overlay" style="display:none">
+  <div class="login-box">
+    <h2>🍞 BreadVenture</h2>
+    <p>Введи имя и пин-код для входа</p>
+    <input type="text" class="login-name" id="login-name" placeholder="Твоё имя" autocomplete="off">
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;color:#6B6B68;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Пин-код</div>
+      <div style="display:flex;gap:8px;justify-content:center" id="pin-dots">
+        <div class="pin-dot" id="pd0"></div>
+        <div class="pin-dot" id="pd1"></div>
+        <div class="pin-dot" id="pd2"></div>
+        <div class="pin-dot" id="pd3"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px;max-width:220px;margin-left:auto;margin-right:auto">
+        <button class="pin-key" onclick="pinKey('1')">1</button>
+        <button class="pin-key" onclick="pinKey('2')">2</button>
+        <button class="pin-key" onclick="pinKey('3')">3</button>
+        <button class="pin-key" onclick="pinKey('4')">4</button>
+        <button class="pin-key" onclick="pinKey('5')">5</button>
+        <button class="pin-key" onclick="pinKey('6')">6</button>
+        <button class="pin-key" onclick="pinKey('7')">7</button>
+        <button class="pin-key" onclick="pinKey('8')">8</button>
+        <button class="pin-key" onclick="pinKey('9')">9</button>
+        <button class="pin-key pin-key-del" onclick="pinDel()" style="grid-column:1">⌫</button>
+        <button class="pin-key" onclick="pinKey('0')">0</button>
+        <button class="pin-key pin-key-ok" id="pin-ok-btn" onclick="doLogin()" disabled>→</button>
+      </div>
+      <div style="font-size:12px;color:#E24B4A;text-align:center;margin-top:10px;min-height:18px" id="pin-error"></div>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY MODAL -->
+<div class="modal-overlay" id="hist-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">История инвентаризаций</div>
+      <button class="modal-close" onclick="closeModal('hist-modal')">×</button>
+    </div>
+    <div class="modal-body" id="hist-body"><div class="hist-empty">Загрузка...</div></div>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="tbar-title">🍞 BreadVenture — Инвентаризация</div>
+  <div class="tbar-meta">
+    <div class="ml"><label>Дата</label><input type="date" class="mi" id="inv-date" style="width:130px"></div>
+    <div class="ml"><label>Кто заполнял</label><input type="text" class="mi" id="inv-who" placeholder="Имя" style="width:130px"></div>
+    <div class="role-badge" id="role-badge" style="display:none"></div>
+    <div class="sync-pill" id="sync-pill">⏳</div>
+  </div>
+</div>
+<div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+
+<div class="summary" id="summary"></div>
+
+<div class="tabs" id="tabs-row"></div>
+
+<!-- SECTIONS (generated by JS) -->
+<div id="all-sections"></div>
+
+<div class="actions" id="action-bar">
+  <button class="btn btn-dark" id="btn-save" onclick="saveToSheets()" disabled>💾 Сохранить в Sheets</button>
+  <button class="btn btn-tg" id="btn-tg" onclick="sendToTelegram()" disabled>✈️ Отправить в Telegram</button>
+  <button class="btn" onclick="openHistory()">🕐 История</button>
+  <button class="btn" onclick="exportPDF()">⬇ PDF</button>
+  <button class="btn" onclick="window.print()">🖨</button>
+  <button class="btn" onclick="newInv()">↺ Новая</button>
+  <button class="btn btn-sm" onclick="logout()" style="margin-left:auto">🚪 Выйти</button><button class="btn btn-sm" onclick="resetSetup()">⚙ URL</button>
+</div>
+
+<script>
+// ==================== DATA ====================
+const DEFAULT_ITEMS = {
+  "Ингредиенты пекарни": [
+    {name:"Мука T00 (капуто)",unit:"кг",ok:20,mid:10,low:5,crit:true},
+    {name:"Мука T500 (чековин)",unit:"кг",ok:15,mid:8,low:3,crit:true},
+    {name:"ЦЗ пшеничная",unit:"кг",ok:10,mid:5,low:2,crit:false},
+    {name:"ЦЗ ржаная",unit:"кг",ok:10,mid:5,low:2,crit:false},
+    {name:"Масло 82%",unit:"кг",ok:5,mid:2,low:1,crit:true},
+    {name:"Молоко",unit:"л",ok:10,mid:5,low:2,crit:true},
+    {name:"Яйца",unit:"шт",ok:60,mid:30,low:10,crit:true},
+    {name:"Соль",unit:"кг",ok:5,mid:2,low:0.5,crit:true},
+    {name:"Сахар",unit:"кг",ok:5,mid:2,low:0.5,crit:true},
+    {name:"Сливки 30%",unit:"л",ok:3,mid:1.5,low:0.5,crit:false},
+    {name:"Сметана",unit:"кг",ok:3,mid:1,low:0.3,crit:false},
+    {name:"Шоколад тёмный",unit:"кг",ok:3,mid:1,low:0.3,crit:false},
+    {name:"Какао",unit:"кг",ok:2,mid:1,low:0.2,crit:false},
+    {name:"Нутелла",unit:"кг",ok:2,mid:1,low:0.3,crit:false},
+    {name:"Мёд",unit:"кг",ok:2,mid:1,low:0.2,crit:false},
+    {name:"Сахарная пудра",unit:"кг",ok:2,mid:1,low:0.2,crit:false},
+    {name:"Миндальная мука",unit:"кг",ok:2,mid:1,low:0.2,crit:false},
+    {name:"Ванильный сахар",unit:"кг",ok:0.5,mid:0.2,low:0.05,crit:false},
+    {name:"Ванильный экстракт",unit:"мл",ok:200,mid:100,low:30,crit:false},
+    {name:"Разрыхлитель теста",unit:"г",ok:500,mid:200,low:50,crit:false},
+    {name:"Сода",unit:"г",ok:500,mid:200,low:50,crit:false},
+    {name:"Дрожжи",unit:"г",ok:500,mid:200,low:50,crit:true},
+    {name:"Солод лекарский",unit:"кг",ok:1,mid:0.5,low:0.1,crit:false},
+    {name:"Тростниковый сахар",unit:"кг",ok:2,mid:1,low:0.2,crit:false},
+    {name:"Семена льна",unit:"кг",ok:1,mid:0.5,low:0.1,crit:false},
+    {name:"Семена подсолнечника",unit:"кг",ok:2,mid:1,low:0.2,crit:false},
+    {name:"Семена тыквы",unit:"кг",ok:1,mid:0.5,low:0.1,crit:false},
+    {name:"Мак",unit:"кг",ok:1,mid:0.5,low:0.1,crit:false},
+    {name:"Кориандр",unit:"кг",ok:0.5,mid:0.2,low:0.05,crit:false},
+    {name:"Фундук",unit:"кг",ok:1,mid:0.5,low:0.1,crit:false},
+    {name:"Грецкий орех",unit:"кг",ok:1,mid:0.5,low:0.1,crit:false},
+    {name:"Бананы",unit:"кг",ok:3,mid:1.5,low:0.5,crit:false},
+    {name:"Лимоны",unit:"шт",ok:10,mid:5,low:2,crit:false},
+    {name:"Лимонная кислота",unit:"г",ok:200,mid:100,low:30,crit:false},
+    {name:"Оливковое масло",unit:"л",ok:2,mid:1,low:0.3,crit:false},
+    {name:"Подсолнечное масло",unit:"л",ok:3,mid:1.5,low:0.5,crit:false},
+    {name:"Крахмал кукурузный",unit:"кг",ok:1,mid:0.5,low:0.1,crit:false},
+    {name:"Корица",unit:"г",ok:200,mid:100,low:30,crit:false},
+    {name:"Амаретто",unit:"мл",ok:200,mid:100,low:30,crit:false},
+    {name:"Сыр гауда",unit:"кг",ok:2,mid:1,low:0.3,crit:false},
+    {name:"Тмин",unit:"г",ok:200,mid:100,low:30,crit:false},
+  ],
+  "Расходники пекарни": [
+    {name:"Корзины",unit:"шт",ok:10,mid:5,low:2,crit:false},
+    {name:"Шапочки для корзинок",unit:"шт",ok:20,mid:10,low:5,crit:false},
+    {name:"Перчатки L",unit:"пар",ok:2,mid:1,low:0,crit:false},
+    {name:"Перчатки M",unit:"пар",ok:2,mid:1,low:0,crit:false},
+    {name:"Резиновые перчатки S",unit:"пар",ok:2,mid:1,low:0,crit:false},
+    {name:"Резиновые перчатки M",unit:"пар",ok:2,mid:1,low:0,crit:false},
+    {name:"Резиновые перчатки L",unit:"пар",ok:2,mid:1,low:0,crit:false},
+    {name:"Пульверизатор",unit:"шт",ok:2,mid:1,low:0,crit:false},
+    {name:"Маркер белый",unit:"шт",ok:3,mid:2,low:1,crit:false},
+    {name:"Маркер цветной",unit:"шт",ok:3,mid:2,low:1,crit:false},
+    {name:"Строительный скотч узкий",unit:"рул",ok:2,mid:1,low:0,crit:false},
+    {name:"Строительный скотч широкий",unit:"рул",ok:2,mid:1,low:0,crit:false},
+    {name:"Средство для мытья посуды",unit:"шт",ok:2,mid:1,low:0,crit:true},
+    {name:"Средство для мытья раковин",unit:"шт",ok:2,mid:1,low:0,crit:false},
+    {name:"Средство для мытья туалета",unit:"шт",ok:2,mid:1,low:0,crit:false},
+    {name:"Средство для мытья стёкол",unit:"шт",ok:2,mid:1,low:0,crit:false},
+    {name:"Средство для мытья пола",unit:"шт",ok:2,mid:1,low:0,crit:false},
+    {name:"Средство для мытья ванной",unit:"шт",ok:2,mid:1,low:0,crit:false},
+    {name:"Тряпки цветные хлопок",unit:"шт",ok:5,mid:3,low:1,crit:false},
+    {name:"Тряпки цветные плотные",unit:"шт",ok:5,mid:3,low:1,crit:false},
+    {name:"Половые тряпки",unit:"шт",ok:3,mid:2,low:1,crit:false},
+    {name:"Таймеры",unit:"шт",ok:3,mid:2,low:1,crit:true},
+    {name:"Пекарские перчатки для металла",unit:"пар",ok:2,mid:1,low:0,crit:true},
+    {name:"Пекарские перчатки хлебные",unit:"пар",ok:2,mid:1,low:0,crit:true},
+    {name:"Скребки жёлтые средние",unit:"шт",ok:3,mid:2,low:1,crit:false},
+    {name:"Скребки белые округлые малые",unit:"шт",ok:3,mid:2,low:1,crit:false},
+    {name:"Большой скребок для хлеба",unit:"шт",ok:2,mid:1,low:0,crit:false},
+    {name:"Спирт",unit:"л",ok:1,mid:0.5,low:0.1,crit:true},
+    {name:"Спрей масляный для форм",unit:"шт",ok:2,mid:1,low:0,crit:true},
+    {name:"Плёнка тонкая",unit:"рул",ok:2,mid:1,low:0,crit:false},
+    {name:"Пекарские листы для противней",unit:"шт",ok:10,mid:5,low:2,crit:false},
+    {name:"Губки для мытья посуды",unit:"шт",ok:5,mid:3,low:1,crit:false},
+    {name:"Железные губки",unit:"шт",ok:3,mid:2,low:1,crit:false},
+    {name:"Контейнеры для теста 8 л",unit:"шт",ok:5,mid:3,low:1,crit:false},
+    {name:"Контейнеры для теста 5 л",unit:"шт",ok:5,mid:3,low:1,crit:false},
+    {name:"Контейнеры для теста 3 л",unit:"шт",ok:5,mid:3,low:1,crit:false},
+    {name:"Контейнеры для теста 1 л",unit:"шт",ok:5,mid:3,low:1,crit:false},
+    {name:"Маски для лица",unit:"шт",ok:10,mid:5,low:2,crit:false},
+  ],
+  "Расходники бара": [
+    {name:"Стаканчики 100 мл",unit:"шт",ok:100,mid:50,low:20,crit:true},
+    {name:"Стаканчики 250 мл",unit:"шт",ok:150,mid:80,low:30,crit:true},
+    {name:"Крышки мал 100 мл",unit:"шт",ok:100,mid:50,low:20,crit:false},
+    {name:"Крышки бол 250 мл",unit:"шт",ok:150,mid:80,low:30,crit:false},
+    {name:"Салфетки сухие",unit:"упак",ok:1,mid:0.5,low:0,crit:false},
+    {name:"Салфетки влажные",unit:"упак",ok:0.2,mid:0.1,low:0,crit:false},
+    {name:"Палочки для размешивания",unit:"упак",ok:0.3,mid:0.1,low:0,crit:false},
+    {name:"Зубочистки",unit:"упак",ok:0.5,mid:0.2,low:0,crit:false},
+    {name:"Пакеты малые",unit:"упак",ok:2,mid:1,low:0,crit:false},
+    {name:"Пакеты средние",unit:"упак",ok:2,mid:1,low:0,crit:false},
+    {name:"Кесе с ручками",unit:"шт",ok:100,mid:50,low:20,crit:false},
+    {name:"Пакеты Wolt",unit:"шт",ok:60,mid:30,low:10,crit:false},
+    {name:"Пакеты Glovo",unit:"шт",ok:50,mid:25,low:10,crit:false},
+    {name:"Пластичне кесе",unit:"упак",ok:0.5,mid:0.2,low:0,crit:false},
+    {name:"Провидна фолija",unit:"рул",ok:1,mid:0.5,low:0,crit:false},
+    {name:"Стикеры жёлтые",unit:"шт",ok:150,mid:80,low:30,crit:false},
+    {name:"Стикеры фиолетовые",unit:"шт",ok:150,mid:80,low:30,crit:false},
+    {name:"Стикеры с птицей",unit:"шт",ok:100,mid:50,low:20,crit:false},
+    {name:"Открытки",unit:"шт",ok:40,mid:20,low:5,crit:false},
+    {name:"Чернила для печати",unit:"упак",ok:1,mid:0.5,low:0,crit:false},
+    {name:"Бумага для кассы",unit:"шт",ok:4,mid:2,low:1,crit:true},
+    {name:"Бумага для терминала",unit:"шт",ok:5,mid:2,low:1,crit:true},
+    {name:"Скобы для степлера",unit:"упак",ok:0.5,mid:0.2,low:0,crit:false},
+    {name:"Маркеры белые",unit:"шт",ok:2,mid:1,low:0,crit:false},
+    {name:"Маркеры цветные",unit:"шт",ok:2,mid:1,low:0,crit:false},
+    {name:"Порошок для чистки кофемашины",unit:"упак",ok:0.2,mid:0.1,low:0,crit:true},
+    {name:"Перчатки виниловые m/l",unit:"упак",ok:2,mid:1,low:0,crit:false},
+    {name:"Перчатки резиновые m/s",unit:"упак",ok:2,mid:1,low:0,crit:false},
+    {name:"Трубочки",unit:"упак",ok:0.2,mid:0.1,low:0,crit:false},
+    {name:"Держатели za 4 čaše",unit:"шт",ok:20,mid:10,low:5,crit:false},
+    {name:"Держатели za 2 čaše",unit:"шт",ok:30,mid:15,low:5,crit:false},
+    {name:"Скрепки za papir",unit:"шт",ok:80,mid:40,low:10,crit:false},
+  ],
+  "Ингредиенты бара": [
+    {name:"Молоко",unit:"л",ok:8,mid:4,low:1,crit:true},
+    {name:"Кофе",unit:"г",ok:1000,mid:500,low:150,crit:true},
+    {name:"Какао",unit:"г",ok:500,mid:200,low:50,crit:false},
+    {name:"Сахар",unit:"кг",ok:2,mid:1,low:0.2,crit:true},
+    {name:"Специи",unit:"г",ok:100,mid:50,low:10,crit:false},
+    {name:"Сливки для рафа",unit:"л",ok:2,mid:1,low:0.3,crit:false},
+    {name:"Чай чёрный",unit:"упак",ok:1,mid:0.5,low:0,crit:false},
+    {name:"Чай зелёный",unit:"упак",ok:1,mid:0.5,low:0,crit:false},
+    {name:"Чай фруктовый",unit:"упак",ok:1,mid:0.5,low:0,crit:false},
+  ]
+};
+
+// Role → visible categories
+const ROLE_CATS = {
+  baker:   ["Ингредиенты пекарни","Расходники пекарни"],
+  barista: ["Расходники бара","Ингредиенты бара"],
+  manager: ["Ингредиенты пекарни","Расходники пекарни","Расходники бара","Ингредиенты бара"]
+};
+const CAT_ICONS = {
+  "Ингредиенты пекарни":"🌾","Расходники пекарни":"🧤","Расходники бара":"☕","Ингредиенты бара":"🍵"
+};
+
+// ==================== STATE ====================
+const LS_URL = 'bv_script_url';
+let SCRIPT_URL = '';
+let currentRole = null;
+let currentName = '';
+let items = JSON.parse(JSON.stringify(DEFAULT_ITEMS)); // deep copy
+let state = {}; // state[cat][i] = {val, unit, crit, note}
+let thresh = {}; // thresh[cat][i] = {ok,mid,low}
+let activeTab = null;
+
+// ==================== LOGIN ====================
+// ==================== PIN AUTH ====================
+// Пины хранятся ТОЛЬКО в Apps Script (appsscript.gs), не здесь.
+// В HTML пинов нет — проверка идёт на сервере.
+
+let pinBuffer = '';
+
+function pinKey(d) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += d;
+  updatePinDots();
+  if (pinBuffer.length === 4) {
+    const name = document.getElementById('login-name').value.trim();
+    if (name) setTimeout(doLogin, 120);
+    else document.getElementById('login-name').focus();
+  }
+}
+
+function pinDel() {
+  pinBuffer = pinBuffer.slice(0, -1);
+  document.getElementById('pin-error').textContent = '';
+  document.getElementById('pin-ok-btn').disabled = true;
+  updatePinDots(false);
+}
+
+function updatePinDots(state) {
+  for (let i = 0; i < 4; i++) {
+    const d = document.getElementById('pd' + i);
+    d.classList.toggle('filled', i < pinBuffer.length && state !== 'error');
+    d.classList.toggle('error', state === 'error');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const nameEl = document.getElementById('login-name');
+  if (nameEl) nameEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && pinBuffer.length === 4) doLogin();
+  });
+});
+
+async function doLogin() {
+  const name = document.getElementById('login-name').value.trim();
+  if (!name) { document.getElementById('login-name').focus(); return; }
+  if (pinBuffer.length !== 4) return;
+
+  if (!SCRIPT_URL) {
+    document.getElementById('pin-error').textContent = 'Сначала подключи Apps Script (кнопка ⚙ URL)';
+    return;
+  }
+
+  // Show loading state
+  document.getElementById('pin-ok-btn').disabled = true;
+  document.getElementById('pin-error').textContent = '...';
+
+  try {
+    const r = await fetch(SCRIPT_URL + '?action=checkPin&pin=' + encodeURIComponent(pinBuffer));
+    const d = await r.json();
+
+    if (d.role) {
+      currentRole = d.role;
+      currentName = name;
+      localStorage.setItem('bv_role', d.role);
+      localStorage.setItem('bv_name', name);
+      document.getElementById('login-overlay').style.display = 'none';
+      document.getElementById('inv-who').value = name;
+      applyRole();
+      loadFromSheets();
+    } else {
+      // Wrong pin
+      document.getElementById('pin-error').textContent = 'Неверный пин-код';
+      updatePinDots('error');
+      setTimeout(() => {
+        pinBuffer = '';
+        updatePinDots('clear');
+        document.getElementById('pin-error').textContent = '';
+        document.getElementById('pin-ok-btn').disabled = true;
+      }, 900);
+    }
+  } catch(e) {
+    document.getElementById('pin-error').textContent = 'Ошибка соединения';
+    document.getElementById('pin-ok-btn').disabled = false;
+  }
+}
+
+function applyRole() {
+  const badge = document.getElementById('role-badge');
+  const labels = {baker:'🥖 Пекарь', barista:'☕ Бариста', manager:'📋 Менеджер'};
+  const cls = {baker:'rb-baker', barista:'rb-barista', manager:'rb-manager'};
+  badge.textContent = labels[currentRole];
+  badge.className = 'role-badge ' + cls[currentRole];
+  badge.style.display = '';
+  buildUI();
+}
+
+// ==================== UI BUILD ====================
+function buildUI() {
+  const cats = ROLE_CATS[currentRole];
+  initState(cats);
+  buildTabs(cats);
+  buildSections(cats);
+  if (currentRole === 'manager') buildEditorSection();
+  updateSummary();
+  buildPurchaseList();
+  setActiveTab(cats[0]);
+}
+
+function initState(cats) {
+  cats.forEach(cat => {
+    if (!state[cat]) state[cat] = {};
+    if (!thresh[cat]) thresh[cat] = {};
+    (items[cat]||[]).forEach((it,i) => {
+      if (!state[cat][i]) state[cat][i] = {val:'', unit:it.unit, crit:it.crit, note:''};
+      if (!thresh[cat][i]) thresh[cat][i] = {};
+    });
+  });
+}
+
+function buildTabs(cats) {
+  const row = document.getElementById('tabs-row');
+  row.innerHTML = '';
+  cats.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'tab';
+    btn.textContent = (CAT_ICONS[cat]||'') + ' ' + cat.replace(' пекарни','').replace(' бара',' бара');
+    btn.onclick = () => setActiveTab(cat);
+    btn.dataset.tab = cat;
+    row.appendChild(btn);
+  });
+  // Purchase tab
+  const p = document.createElement('button');
+  p.className = 'tab'; p.textContent = '🛒 Закупки'; p.dataset.tab = '__purchase';
+  p.onclick = () => setActiveTab('__purchase');
+  row.appendChild(p);
+  // Manager editor
+  if (currentRole === 'manager') {
+    const m = document.createElement('button');
+    m.className = 'tab'; m.textContent = '⚙️ Списки'; m.dataset.tab = '__editor';
+    m.onclick = () => setActiveTab('__editor');
+    row.appendChild(m);
+  }
+}
+
+function buildSections(cats) {
+  const wrap = document.getElementById('all-sections');
+  wrap.innerHTML = '';
+  cats.forEach(cat => {
+    const sec = document.createElement('div');
+    sec.id = 'sec-' + slugCat(cat);
+    sec.className = 'content';
+    sec.style.display = 'none';
+    sec.innerHTML = buildTableHTML(cat);
+    wrap.appendChild(sec);
+  });
+  // Purchase section
+  const ps = document.createElement('div');
+  ps.id = 'sec-__purchase'; ps.className = 'content'; ps.style.display = 'none';
+  ps.innerHTML = `
+    <div class="psec"><div class="ph">Срочно купить <span class="pcnt ptag-r" id="cnt-low">0</span></div><div class="p-list" id="list-low"></div></div>
+    <div class="psec"><div class="ph">Пополнить (среднее) <span class="pcnt ptag-a" id="cnt-mid">0</span></div><div class="p-list" id="list-mid"></div></div>
+    <div class="wish-box"><div class="wish-title">✨ Пожелания — что хотим приобрести</div>
+    <textarea class="wish-ta" id="wish-text" placeholder="Новый инвентарь, ингредиенты на пробу..."></textarea></div>`;
+  wrap.appendChild(ps);
+}
+
+function buildTableHTML(cat) {
+  const canEdit = currentRole === 'manager';
+  const instrText = canEdit
+    ? '<li>Вкладка <strong>Списки</strong> — добавляйте/удаляйте позиции и сохраняйте в Sheets.</li>'
+    : '<li>Пороги Норма/Среднее/Мало редактирует менеджер.</li>';
+  return `<div class="instr">
+    <div class="instr-h" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.arr').textContent=this.nextElementSibling.classList.contains('open')?'▲':'▼'">
+      ℹ️ Инструкция <span class="arr">▼</span></div>
+    <div class="instr-b"><ul>
+      <li>Заполняйте <strong>2 раза в неделю</strong> — укажите дату и имя вверху.</li>
+      <li>Введите <strong>текущее количество</strong>. Статус проставляется автоматически.</li>
+      <li><strong>Крит.</strong> — позиции нельзя доводить до нуля. Красная полоса слева.</li>
+      ${instrText}
+      <li>Нажмите <strong>Сохранить в Sheets</strong> — данные пишутся в таблицу.</li>
+      <li>Нажмите <strong>Отправить в Telegram</strong> — отчёт летит в чат закупок.</li>
+    </ul></div></div>
+    <div class="legend">
+      <div class="leg"><div class="ldot" style="background:var(--green-mid)"></div>Норма</div>
+      <div class="leg"><div class="ldot" style="background:var(--amber-mid)"></div>Среднее</div>
+      <div class="leg"><div class="ldot" style="background:var(--red-mid)"></div>Мало</div>
+      <div class="leg"><div style="width:9px;height:13px;border-left:3px solid var(--red-mid)"></div>Критично</div>
+    </div>
+    <div class="twrap"><table>
+      <thead><tr>
+        <th style="min-width:140px">Название</th>
+        <th>Сейчас</th><th>Ед.</th>
+        <th>Норма≥</th><th>Среднее≥</th><th>Мало&lt;</th>
+        <th>Статус</th><th>Крит.</th><th style="min-width:110px">Заметка</th>
+      </tr></thead>
+      <tbody id="tbody-${slugCat(cat)}"></tbody>
+    </table></div>`;
+}
+
+function renderTable(cat) {
+  const canEditThresh = currentRole === 'manager';
+  const rawIts = items[cat]||[];
+  const indexed = rawIts.map((it,i)=>({it,oi:i}));
+  indexed.sort((a,b)=>{
+    const ac=state[cat]&&state[cat][a.oi]&&state[cat][a.oi].crit!==undefined?state[cat][a.oi].crit:a.it.crit;
+    const bc=state[cat]&&state[cat][b.oi]&&state[cat][b.oi].crit!==undefined?state[cat][b.oi].crit:b.it.crit;
+    return (bc?1:0)-(ac?1:0);
+  });
+  const tbody = document.getElementById('tbody-'+slugCat(cat));
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  indexed.forEach(({it:item, oi:i}) => {
+    const s = state[cat][i]||{val:'',unit:item.unit,crit:item.crit,note:''};
+    const ok = getThresh(cat,i,'ok'), mid = getThresh(cat,i,'mid'), low = getThresh(cat,i,'low');
+    const st = getStatus(s.val, ok, mid);
+    const nc = 'tnum'+(st==='low'?' hl-low':st==='mid'?' hl-mid':'');
+    const tr = document.createElement('tr');
+    tr.className = s.crit ? 'rc' : 'rn';
+    const thEl = v => canEditThresh
+      ? `<input type="number" class="tnum" value="${v}" step="0.1" min="0" data-cat="${cat}" data-i="${i}" data-f="${v===ok?'ok':v===mid?'mid':'low'}" onchange="onThresh(this)">`
+      : `<span style="font-size:12px;color:var(--text2)">${v}</span>`;
+    tr.innerHTML = `
+      <td style="font-size:13px">${item.name}</td>
+      <td><input type="number" class="${nc}" value="${s.val}" placeholder="0" min="0" step="0.1" data-cat="${cat}" data-i="${i}" onchange="onVal(this)"></td>
+      <td><select class="tsel" data-cat="${cat}" data-i="${i}" onchange="onUnit(this)">${['кг','г','л','мл','шт','пар','рул','уп'].map(u=>`<option${u===(s.unit||item.unit)?' selected':''}>${u}</option>`).join('')}</select></td>
+      <td>${thEl(ok)}</td><td>${thEl(mid)}</td><td>${thEl(low)}</td>
+      <td id="stc-${slugCat(cat)}-${i}">${badge(st)}</td>
+      <td><div class="ctog${s.crit?' on':''}${canEditThresh?'':' disabled'}" data-cat="${cat}" data-i="${i}" onclick="onCrit(this)"></div></td>
+      <td><input type="text" class="tnote" value="${s.note||''}" placeholder="..." data-cat="${cat}" data-i="${i}" onchange="onNote(this)"></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ==================== MANAGER EDITOR ====================
+let editorCat = null;
+
+function buildEditorSection() {
+  const wrap = document.getElementById('all-sections');
+  let sec = document.getElementById('sec-__editor');
+  if (!sec) { sec = document.createElement('div'); sec.id='sec-__editor'; sec.className='content'; sec.style.display='none'; wrap.appendChild(sec); }
+  const cats = Object.keys(items);
+  editorCat = editorCat || cats[0];
+  sec.innerHTML = `<div style="margin-bottom:12px;font-size:13px;color:var(--text2)">Добавляй и удаляй позиции. Сохранение обновляет таблицы и записывает изменения в Sheets.</div>
+    <div class="ed-cats">${cats.map(c=>`<button class="ed-cat-btn${c===editorCat?' active':''}" onclick="switchEdCat('${c}',this)">${CAT_ICONS[c]||''} ${c}</button>`).join('')}</div>
+    <div id="ed-table-area"></div>
+    <button class="add-row-btn" onclick="addEdRow()">+ Добавить позицию</button>
+    <button class="save-items-btn" onclick="saveItemsToSheets()">💾 Сохранить списки в Sheets</button>`;
+  renderEditorTable();
+}
+
+function switchEdCat(cat, el) {
+  editorCat = cat;
+  document.querySelectorAll('.ed-cat-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  renderEditorTable();
+}
+
+function renderEditorTable() {
+  const area = document.getElementById('ed-table-area');
+  if (!area) return;
+  const its = items[editorCat]||[];
+  area.innerHTML = `<div class="ed-table-wrap"><table class="ed-table">
+    <thead><tr><th style="min-width:160px">Название</th><th>Ед.</th><th>Норма</th><th>Среднее</th><th>Мало</th><th>Крит.</th><th style="width:36px"></th></tr></thead>
+    <tbody id="ed-tbody"></tbody></table></div>`;
+  const tbody = document.getElementById('ed-tbody');
+  its.forEach((it,i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input class="ed-inp" value="${it.name}" onchange="items['${editorCat}'][${i}].name=this.value"></td>
+      <td><select class="ed-sel" onchange="items['${editorCat}'][${i}].unit=this.value">${['кг','г','л','мл','шт','пар','рул','уп'].map(u=>`<option${u===it.unit?' selected':''}>${u}</option>`).join('')}</select></td>
+      <td><input type="number" class="ed-num" value="${it.ok}" step="0.1" onchange="items['${editorCat}'][${i}].ok=parseFloat(this.value)||0"></td>
+      <td><input type="number" class="ed-num" value="${it.mid}" step="0.1" onchange="items['${editorCat}'][${i}].mid=parseFloat(this.value)||0"></td>
+      <td><input type="number" class="ed-num" value="${it.low}" step="0.1" onchange="items['${editorCat}'][${i}].low=parseFloat(this.value)||0"></td>
+      <td><div class="ctog${it.crit?' on':''}" onclick="items['${editorCat}'][${i}].crit=!items['${editorCat}'][${i}].crit;this.classList.toggle('on')"></div></td>
+      <td><button class="del-btn" onclick="delEdRow(${i})" title="Удалить">×</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function addEdRow() {
+  if (!items[editorCat]) items[editorCat] = [];
+  items[editorCat].push({name:'Новая позиция',unit:'шт',ok:5,mid:2,low:1,crit:false});
+  renderEditorTable();
+}
+
+function delEdRow(i) {
+  if (!confirm(`Удалить "${items[editorCat][i].name}"?`)) return;
+  items[editorCat].splice(i,1);
+  if (state[editorCat]) {
+    const ns = {};
+    Object.keys(state[editorCat]).forEach(k => { if(+k < i) ns[k]=state[editorCat][k]; else if(+k > i) ns[+k-1]=state[editorCat][k]; });
+    state[editorCat] = ns;
+  }
+  renderEditorTable();
+  const cats = ROLE_CATS[currentRole];
+  if (cats.includes(editorCat)) { initState([editorCat]); renderTable(editorCat); }
+}
+
+async function saveItemsToSheets() {
+  if (!SCRIPT_URL) return;
+  setSyncPill('busy','💾 Сохраняю списки...');
+  try {
+    const url = SCRIPT_URL+'?action=setItems&data='+encodeURIComponent(JSON.stringify(items));
+    const r = await fetch(url); const d = await r.json();
+    if (d.status==='ok') {
+      setSyncPill('ok','✓ Списки сохранены');
+      const cats = ROLE_CATS[currentRole];
+      cats.forEach(c => { initState([c]); renderTable(c); });
+      updateSummary(); buildPurchaseList();
+    } else setSyncPill('err','⚠ Ошибка');
+  } catch(e) { setSyncPill('err','⚠ '+e.message); }
+}
+
+// ==================== STATE HANDLERS ====================
+function onVal(el) {
+  const cat=el.dataset.cat, i=+el.dataset.i;
+  state[cat][i].val=el.value;
+  refreshRow(cat,i); updateSummary(); buildPurchaseList(); updateProgress();
+}
+function onUnit(el) { state[el.dataset.cat][+el.dataset.i].unit=el.value; }
+function onNote(el) { state[el.dataset.cat][+el.dataset.i].note=el.value; }
+function onThresh(el) {
+  const cat=el.dataset.cat, i=+el.dataset.i, f=el.dataset.f;
+  if(!thresh[cat][i]) thresh[cat][i]={};
+  thresh[cat][i][f]=parseFloat(el.value)||0;
+  refreshRow(cat,i); updateSummary(); buildPurchaseList();
+}
+function onCrit(el) {
+  if (el.classList.contains('disabled')) return;
+  const cat=el.dataset.cat, i=+el.dataset.i;
+  state[cat][i].crit=!state[cat][i].crit;
+  el.classList.toggle('on');
+  el.closest('tr').className=state[cat][i].crit?'rc':'rn';
+}
+function refreshRow(cat,i) {
+  const it=(items[cat]||[])[i]; if(!it) return;
+  const s=state[cat][i]; const st=getStatus(s.val, getThresh(cat,i,'ok'), getThresh(cat,i,'mid'));
+  const sc=document.getElementById(`stc-${slugCat(cat)}-${i}`); if(sc) sc.innerHTML=badge(st);
+  const inp=document.querySelector(`input[data-cat="${cat}"][data-i="${i}"][type="number"]:not([data-f])`);
+  if(inp) inp.className='tnum'+(st==='low'?' hl-low':st==='mid'?' hl-mid':'');
+}
+
+// ==================== PURCHASE LIST ====================
+function buildPurchaseList() {
+  const lEl=document.getElementById('list-low'), mEl=document.getElementById('list-mid');
+  if(!lEl||!mEl) return;
+  lEl.innerHTML=''; mEl.innerHTML='';
+  const cats = ROLE_CATS[currentRole]||[];
+  const lows=[], mids=[];
+  cats.forEach(cat=>{
+    (items[cat]||[]).forEach((it,i)=>{
+      const s=state[cat]&&state[cat][i]?state[cat][i]:{};
+      const st=getStatus(s.val||'', getThresh(cat,i,'ok'), getThresh(cat,i,'mid'));
+      if(st==='low') lows.push({it,cat,i,s});
+      if(st==='mid') mids.push({it,cat,i,s});
+    });
+  });
+  lows.sort((a,b)=>(b.s.crit?1:0)-(a.s.crit?1:0));
+  if(!lows.length) lEl.innerHTML='<div class="pempty">Всё в норме ✓</div>';
+  else lows.forEach(({it,cat,i,s})=>{
+    const unit=s.unit||it.unit,d=document.createElement('div');d.className='pitem';
+    d.innerHTML=`<div class="pdot" style="background:${s.crit?'var(--red-mid)':'var(--amber-mid)'}"></div><div class="pname">${it.name}<span class="pcat">${cat}</span></div><div class="pcurr">сейчас: ${s.val||'—'} ${unit}</div>${s.crit?'<span class="ptag ptag-r">Критично</span>':''}`;
+    lEl.appendChild(d);
+  });
+  if(!mids.length) mEl.innerHTML='<div class="pempty">Нет позиций</div>';
+  else mids.forEach(({it,cat,i,s})=>{
+    const unit=s.unit||it.unit,d=document.createElement('div');d.className='pitem';
+    d.innerHTML=`<div class="pdot" style="background:var(--amber-mid)"></div><div class="pname">${it.name}<span class="pcat">${cat}</span></div><div class="pcurr">сейчас: ${s.val||'—'} ${unit}</div><span class="ptag ptag-a">Среднее</span>`;
+    mEl.appendChild(d);
+  });
+  document.getElementById('cnt-low').textContent=lows.length;
+  document.getElementById('cnt-mid').textContent=mids.length;
+}
+
+// ==================== SUMMARY + PROGRESS ====================
+function updateSummary() {
+  const cats = ROLE_CATS[currentRole]||[];
+  let total=0,ok=0,mid=0,low=0,empty=0;
+  cats.forEach(cat=>{
+    (items[cat]||[]).forEach((it,i)=>{
+      total++;
+      const s=state[cat]&&state[cat][i]?state[cat][i]:{};
+      const st=getStatus(s.val||'', getThresh(cat,i,'ok'), getThresh(cat,i,'mid'));
+      if(st==='ok')ok++;else if(st==='mid')mid++;else if(st==='low')low++;else empty++;
+    });
+  });
+  document.getElementById('summary').innerHTML=`
+    <div class="scard"><div class="scard-lbl">Всего</div><div class="scard-val">${total}</div></div>
+    <div class="scard"><div class="scard-lbl">Норма</div><div class="scard-val v-green">${ok}</div></div>
+    <div class="scard"><div class="scard-lbl">Среднее</div><div class="scard-val v-amber">${mid}</div></div>
+    <div class="scard"><div class="scard-lbl">Мало</div><div class="scard-val v-red">${low}</div></div>
+    <div class="scard"><div class="scard-lbl">Не заполнено</div><div class="scard-val v-gray">${empty}</div></div>`;
+  updateProgress();
+}
+
+function updateProgress() {
+  const cats = ROLE_CATS[currentRole]||[];
+  let total=0, filled=0;
+  cats.forEach(cat=>{
+    (items[cat]||[]).forEach((_,i)=>{
+      total++;
+      const s=state[cat]&&state[cat][i]?state[cat][i]:{};
+      if(s.val!==''&&s.val!==null) filled++;
+    });
+  });
+  const pct = total ? Math.round(filled/total*100) : 0;
+  document.getElementById('progress-fill').style.width = pct+'%';
+  document.getElementById('btn-save').disabled = false;
+  document.getElementById('btn-tg').disabled = false;
+}
+
+// ==================== TABS ====================
+function setActiveTab(cat) {
+  activeTab = cat;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===cat));
+  document.querySelectorAll('[id^="sec-"]').forEach(s=>s.style.display='none');
+  const sec = document.getElementById('sec-'+slugCat(cat));
+  if (sec) { sec.style.display=''; if(cat!=='__purchase'&&cat!=='__editor') renderTable(cat); }
+}
+
+// ==================== SHEETS ====================
+async function saveToSheets() {
+  if(!SCRIPT_URL) return;
+  const payload = buildPayload();
+  // Always save backup locally
+  try { localStorage.setItem('bv_state_backup', JSON.stringify({state, date: payload.date, who: payload.who, wish: payload.wish})); } catch(e2) {}
+  setSyncPill('busy','💾 Сохраняю...');
+  document.getElementById('btn-save').disabled = true;
+  try {
+    const url=SCRIPT_URL+'?action=save&data='+encodeURIComponent(JSON.stringify(payload));
+    const r=await fetch(url); const d=await r.json();
+    if(d.status==='ok') setSyncPill('ok','✓ Сохранено в Sheets');
+    else setSyncPill('err','⚠ '+d.message);
+  } catch(e) { setSyncPill('err','⚠ '+e.message); }
+  document.getElementById('btn-save').disabled = false;
+}
+
+async function sendToTelegram() {
+  if(!SCRIPT_URL) return;
+  const payload = buildPayload();
+  setSyncPill('busy','✈️ Отправляю...');
+  document.getElementById('btn-tg').disabled = true;
+  try {
+    const url=SCRIPT_URL+'?action=telegram&data='+encodeURIComponent(JSON.stringify(payload));
+    const r=await fetch(url); const d=await r.json();
+    if(d.status==='ok') setSyncPill('ok','✓ Отправлено в Telegram');
+    else setSyncPill('err','⚠ '+d.message);
+  } catch(e) { setSyncPill('err','⚠ '+e.message); }
+  document.getElementById('btn-tg').disabled = false;
+}
+
+async function loadFromSheets() {
+  if(!SCRIPT_URL) return;
+  setSyncPill('busy','⏳ Загружаю...');
+  try {
+    const r=await fetch(SCRIPT_URL+'?action=load'); const d=await r.json();
+    if(d.status==='ok'&&d.items&&d.items.length) {
+      if(d.date) document.getElementById('inv-date').value=d.date;
+      if(d.who) document.getElementById('inv-who').value=d.who;
+      if(d.wish) { const w=document.getElementById('wish-text'); if(w) w.value=d.wish; }
+      d.items.forEach(item=>{
+        const cat=item.cat;
+        if(!items[cat]) return;
+        const idx=items[cat].findIndex(it=>it.name===item.name);
+        if(idx>=0) {
+          if(!state[cat]) state[cat]={};
+          if(!state[cat][idx]) state[cat][idx]={};
+          state[cat][idx].val=item.val; state[cat][idx].unit=item.unit;
+          state[cat][idx].crit=item.crit; state[cat][idx].note=item.note;
+        }
+      });
+      const cats=ROLE_CATS[currentRole]||[];
+      cats.forEach(c=>renderTable(c));
+      updateSummary(); buildPurchaseList();
+      setSyncPill('ok','✓ Данные загружены');
+      // Backup to localStorage
+      try { localStorage.setItem('bv_state_backup', JSON.stringify({state, date: d.date, who: d.who, wish: d.wish})); } catch(e) {}
+    } else setSyncPill('ok','Готово');
+  } catch(e) {
+    setSyncPill('err','⚠ Ошибка загрузки — пробую локальный кэш');
+    try {
+      const bk = JSON.parse(localStorage.getItem('bv_state_backup')||'null');
+      if (bk && bk.state) {
+        state = bk.state;
+        if(bk.date) document.getElementById('inv-date').value = bk.date;
+        if(bk.who) document.getElementById('inv-who').value = bk.who;
+        if(bk.wish) { const w=document.getElementById('wish-text'); if(w) w.value=bk.wish; }
+        const cats=ROLE_CATS[currentRole]||[];
+        cats.forEach(c=>renderTable(c));
+        updateSummary(); buildPurchaseList();
+        setSyncPill('ok','✓ Загружено из кэша');
+      }
+    } catch(e2) {}
+  }
+}
+
+// ==================== HISTORY ====================
+async function openHistory() {
+  document.getElementById('hist-modal').classList.add('open');
+  document.getElementById('hist-body').innerHTML = '<div class="hist-empty">Загрузка...</div>';
+  if(!SCRIPT_URL) { document.getElementById('hist-body').innerHTML='<div class="hist-empty">Sheets не подключён</div>'; return; }
+  try {
+    const r=await fetch(SCRIPT_URL+'?action=history'); const d=await r.json();
+    if(d.status==='ok'&&d.rows&&d.rows.length) {
+      const roleLabel={baker:'Пекарь',barista:'Бариста',manager:'Менеджер'};
+      document.getElementById('hist-body').innerHTML = d.rows.map(row=>{
+        const date = row.date instanceof Date ? row.date.toLocaleDateString('ru') : String(row.date);
+        const rec = row.recorded instanceof Date ? row.recorded.toLocaleString('ru') : String(row.recorded);
+        return `<div class="hist-item">
+          <div class="hist-dot"></div>
+          <div class="hist-who">${row.who||'—'}</div>
+          <div class="hist-role">${roleLabel[row.role]||row.role||'—'}</div>
+          <div class="hist-date">${date}<br><span style="font-size:11px;color:var(--text3)">${rec}</span></div>
+        </div>`;
+      }).join('');
+    } else document.getElementById('hist-body').innerHTML='<div class="hist-empty">История пуста</div>';
+  } catch(e) { document.getElementById('hist-body').innerHTML='<div class="hist-empty">Ошибка загрузки</div>'; }
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ==================== HELPERS ====================
+function buildPayload() {
+  const cats = ROLE_CATS[currentRole]||[];
+  const allItems = [];
+  cats.forEach(cat=>{
+    (items[cat]||[]).forEach((it,i)=>{
+      const s=state[cat]&&state[cat][i]?state[cat][i]:{};
+      allItems.push({cat, name:it.name, val:s.val||'', unit:s.unit||it.unit,
+        status:statusLabel(getStatus(s.val||'', getThresh(cat,i,'ok'), getThresh(cat,i,'mid'))),
+        crit:!!s.crit, note:s.note||''});
+    });
+  });
+  return {date:document.getElementById('inv-date').value, who:document.getElementById('inv-who').value,
+    role:currentRole, wish:(document.getElementById('wish-text')||{}).value||'', items:allItems};
+}
+
+function getThresh(cat,i,f) {
+  const t=thresh[cat]&&thresh[cat][i]?thresh[cat][i]:{};
+  const it=(items[cat]||[])[i]||{};
+  return t[f]!=null?t[f]:(it[f]||0);
+}
+function getStatus(val, ok, mid) {
+  if(val===''||val===null||isNaN(parseFloat(val))) return 'none';
+  const n=parseFloat(val);
+  if(n>=ok) return 'ok'; if(n>=mid) return 'mid'; return 'low';
+}
+function statusLabel(s) { return{ok:'Норма',mid:'Среднее',low:'Мало',none:'—'}[s]||'—'; }
+function badge(s) {
+  if(s==='ok') return'<span class="sbadge s-ok">Норма</span>';
+  if(s==='mid') return'<span class="sbadge s-mid">Среднее</span>';
+  if(s==='low') return'<span class="sbadge s-low">Мало</span>';
+  return'<span class="sbadge s-none">—</span>';
+}
+function slugCat(cat) { return cat.replace(/[^a-zA-Zа-яА-Я0-9]/g,'_'); }
+function setSyncPill(cls,txt) { const p=document.getElementById('sync-pill'); p.textContent=txt; p.className='sync-pill '+(cls||''); }
+
+function newInv() {
+  if(!confirm('Очистить все значения? Пороги сохранятся.')) return;
+  const cats=ROLE_CATS[currentRole]||[];
+  cats.forEach(cat=>{ (items[cat]||[]).forEach((_,i)=>{ if(state[cat]&&state[cat][i]) state[cat][i].val=''; }); });
+  document.getElementById('inv-date').value=new Date().toISOString().split('T')[0];
+  cats.forEach(c=>renderTable(c));
+  updateSummary(); buildPurchaseList(); setSyncPill('','Не сохранено');
+}
+
+function exportCSV() {
+  const cats=ROLE_CATS[currentRole]||[];
+  const date=document.getElementById('inv-date').value||'—';
+  const who=document.getElementById('inv-who').value||'—';
+  let csv='\uFEFFКатегория,Название,Количество,Единица,Статус,Критично,Заметка\n';
+  cats.forEach(cat=>{
+    (items[cat]||[]).forEach((it,i)=>{
+      const s=state[cat]&&state[cat][i]?state[cat][i]:{};
+      const st=statusLabel(getStatus(s.val||'', getThresh(cat,i,'ok'), getThresh(cat,i,'mid')));
+      csv+=`"${cat}","${it.name}","${s.val||''}","${s.unit||it.unit}","${st}","${s.crit?'Да':'Нет'}","${(s.note||'').replace(/"/g,"'")}"\n`;
+    });
+  });
+  csv+=`\nДата,"${date}"\n"Кто","${who}"\nРоль,"${currentRole}"\n`;
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`inv_${date}_${currentRole}.csv`; a.click();
+}
+
+// ==================== SETUP ====================
+async function testScript() {
+  const url=document.getElementById('script-url').value.trim();
+  if(!url) return;
+  const errEl=document.getElementById('setup-err'); errEl.style.display='none';
+  try {
+    const r=await fetch(url+'?action=load'); const d=await r.json();
+    if(d.status==='ok'||d.status==='empty') {
+      SCRIPT_URL=url; localStorage.setItem(LS_URL,url);
+      document.getElementById('setup-overlay').classList.remove('open');
+      showLogin();
+    } else throw new Error('bad');
+  } catch(e) { errEl.style.display='block'; }
+}
+
+function resetSetup() {
+  localStorage.removeItem(LS_URL); SCRIPT_URL='';
+  document.getElementById('script-url').value='';
+  document.getElementById('setup-overlay').classList.add('open');
+}
+
+function showLogin() {
+  const savedRole = localStorage.getItem('bv_role');
+  const savedName = localStorage.getItem('bv_name');
+  if (savedRole && savedName) {
+    currentRole = savedRole; currentName = savedName;
+    document.getElementById('inv-who').value = currentName;
+    applyRole(); loadFromSheets();
+  } else {
+    document.getElementById('login-overlay').style.display = 'flex';
+  }
+}
+
+function logout() {
+  localStorage.removeItem('bv_role');
+  localStorage.removeItem('bv_name');
+  pinBuffer = '';
+  currentRole = null; currentName = '';
+  document.getElementById('login-name').value = '';
+  updatePinDots();
+  document.getElementById('pin-ok-btn').disabled = true;
+  document.getElementById('pin-error').textContent = '';
+  document.getElementById('login-overlay').style.display = 'flex';
+  document.getElementById('role-badge').style.display = 'none';
+  document.getElementById('all-sections').innerHTML = '';
+  document.getElementById('tabs-row').innerHTML = '';
+}
+
+// ==================== INIT ====================
+document.getElementById('inv-date').value = new Date().toISOString().split('T')[0];
+const savedUrl = localStorage.getItem(LS_URL);
+if(savedUrl) { SCRIPT_URL=savedUrl; document.getElementById('setup-overlay').classList.remove('open'); showLogin(); }
+
+function exportPDF() {
+  const date = document.getElementById('inv-date').value || '—';
+  const who = document.getElementById('inv-who').value || '—';
+  const roleLabel = {baker:'Пекарь', barista:'Бариста', manager:'Менеджер'}[currentRole] || '';
+  const cats = ROLE_CATS[currentRole] || [];
+
+  // Show all sections for printing, hide after
+  const allSecs = document.querySelectorAll('[id^="sec-"]');
+  const prevDisplay = {};
+  allSecs.forEach(s => { prevDisplay[s.id] = s.style.display; s.style.display = ''; });
+
+  // Inject print header
+  let ph = document.getElementById('_print_header');
+  if (!ph) {
+    ph = document.createElement('div');
+    ph.id = '_print_header';
+    ph.className = 'print-only';
+    ph.style.cssText = 'display:none;margin-bottom:12px';
+    document.body.prepend(ph);
+  }
+  ph.innerHTML = `<div style="background:#1D1D1B;color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-radius:8px 8px 0 0">
+    <strong style="font-size:14px">🍞 BreadVenture — Инвентаризация</strong>
+    <span style="font-size:12px">${date} · ${who} · ${roleLabel}</span>
+  </div>`;
+
+  // Hide editor/purchase section in print, render all tables
+  document.getElementById('sec-__purchase') && (document.getElementById('sec-__purchase').style.display = '');
+  document.getElementById('sec-__editor') && (document.getElementById('sec-__editor').style.display = 'none');
+  cats.forEach(c => renderTable(c));
+
+  window.print();
+
+  // Restore
+  setTimeout(() => {
+    allSecs.forEach(s => { s.style.display = prevDisplay[s.id]; });
+    document.getElementById('sec-__editor') && (document.getElementById('sec-__editor').style.display = prevDisplay['sec-__editor'] || 'none');
+  }, 500);
+}
+</script>
+</body>
+</html>
