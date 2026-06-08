@@ -1292,14 +1292,18 @@ async function openHistory() {
     const r=await fetch(SCRIPT_URL+'?action=history'); const d=await r.json();
     if(d.status==='ok'&&d.rows&&d.rows.length) {
       const roleLabel={baker:'Пекарь',barista:'Бариста',manager:'Менеджер'};
-      document.getElementById('hist-body').innerHTML = d.rows.map(row=>{
+      document.getElementById('hist-body').innerHTML =
+        '<div style="font-size:12px;color:var(--text2);margin-bottom:10px">Нажми на запись, чтобы посмотреть, сколько чего было.</div>' +
+        d.rows.map(row=>{
         const date = row.date instanceof Date ? row.date.toLocaleDateString('ru') : String(row.date);
         const rec = row.recorded instanceof Date ? row.recorded.toLocaleString('ru') : String(row.recorded);
-        return `<div class="hist-item">
+        const idEsc = (row.id||'').replace(/'/g,"\\'");
+        return `<div class="hist-item" style="cursor:pointer" onclick="openSnapshot('${idEsc}','${(row.who||'').replace(/'/g,"\\'")}','${date}')">
           <div class="hist-dot"></div>
           <div class="hist-who">${row.who||'—'}</div>
           <div class="hist-role">${roleLabel[row.role]||row.role||'—'}</div>
           <div class="hist-date">${date}<br><span style="font-size:11px;color:var(--text3)">${rec}</span></div>
+          <div style="color:var(--text3);font-size:14px;margin-left:4px">›</div>
         </div>`;
       }).join('');
     } else document.getElementById('hist-body').innerHTML='<div class="hist-empty">История пуста</div>';
@@ -1307,6 +1311,45 @@ async function openHistory() {
 }
 
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// Просмотр снимка инвентаризации из истории (только чтение, текущую таблицу не трогает)
+async function openSnapshot(id, who, date) {
+  const body = document.getElementById('hist-body');
+  body.innerHTML = '<div class="hist-empty">Загрузка...</div>';
+  try {
+    const r = await fetch(SCRIPT_URL + '?action=snapshot&id=' + encodeURIComponent(id));
+    const d = await r.json();
+    if (d.status === 'ok' && d.items && d.items.length) {
+      // группируем по категориям
+      const byCat = {};
+      d.items.forEach(it => { if(!byCat[it.cat]) byCat[it.cat]=[]; byCat[it.cat].push(it); });
+      const stColor = s => s==='Мало'?'var(--red)':s==='Среднее'?'var(--amber)':s==='Норма'?'var(--green)':'var(--text3)';
+      let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <button class="btn btn-sm" onclick="openHistory()">‹ К истории</button>
+        <div style="font-size:13px;color:var(--text2)">${who||''} · ${date||''}</div>
+      </div>`;
+      Object.keys(byCat).forEach(cat => {
+        html += `<div style="font-size:13px;font-weight:500;margin:12px 0 6px">${cat}</div>
+          <div class="twrap" style="margin-bottom:8px"><table style="font-size:12px">
+          <thead><tr><th style="text-align:left">Название</th><th style="text-align:right">Было</th><th>Ед.</th><th>Статус</th></tr></thead><tbody>`;
+        byCat[cat].forEach(it => {
+          html += `<tr>
+            <td>${it.name}${it.crit?' <span style="color:var(--red)">⚠</span>':''}</td>
+            <td style="text-align:right">${(it.val===''||it.val===null)?'—':it.val}</td>
+            <td>${it.unit||''}</td>
+            <td style="color:${stColor(it.status)}">${it.status||'—'}</td>
+          </tr>${it.note?`<tr><td colspan="4" style="color:var(--text3);font-size:11px;padding-top:0">↳ ${it.note}</td></tr>`:''}`;
+        });
+        html += `</tbody></table></div>`;
+      });
+      body.innerHTML = html;
+    } else {
+      body.innerHTML = '<div class="hist-empty">Нет данных по этой записи.<br><button class="btn btn-sm" style="margin-top:10px" onclick="openHistory()">‹ К истории</button></div>';
+    }
+  } catch(e) {
+    body.innerHTML = '<div class="hist-empty">Ошибка загрузки.<br><button class="btn btn-sm" style="margin-top:10px" onclick="openHistory()">‹ К истории</button></div>';
+  }
+}
 
 // ==================== HELPERS ====================
 function buildPayload() {
