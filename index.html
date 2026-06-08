@@ -87,6 +87,8 @@ tr:hover td{background:#FAFAF8}
 .tnum.hl-low{border-color:var(--red-mid);background:var(--red-bg)}
 .tnum.hl-mid{border-color:var(--amber-mid);background:var(--amber-bg)}
 .tnum[readonly]{background:var(--bg2);color:var(--text2);border-color:transparent;cursor:default}
+.tnum.from-prev{color:var(--text3);background:#F7F6F0;border-color:var(--border)}
+.prev-tag{display:inline-block;font-size:9px;color:var(--text3);margin-top:2px;white-space:nowrap}
 .tsel{font-size:12px;padding:3px 6px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);width:62px;font-family:inherit}
 .tsel:focus{outline:none;border-color:var(--blue)}
 .tnote{width:100%;font-size:12px;padding:3px 6px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);font-family:inherit}
@@ -706,6 +708,7 @@ let items = JSON.parse(JSON.stringify(DEFAULT_ITEMS)); // deep copy
 let state = {}; // state[cat][i] = {val, unit, crit, note}
 let thresh = {}; // thresh[cat][i] = {ok,mid,low}
 let activeTab = null;
+let prevDate = ''; // дата прошлой инвентаризации (для пометки старых значений)
 
 // ==================== PIN AUTH ====================
 // Пины хранятся ТОЛЬКО в Apps Script (appsscript.gs), не здесь.
@@ -897,7 +900,7 @@ function buildTableHTML(cat) {
     </ul></div></div>
     <div class="legend">
       <div class="leg"><div class="ldot" style="background:var(--green-mid)"></div>Норма</div>
-      <div class="leg"><div class="ldot" style="background:var(--amber-mid)"></div>Среднее</div>
+      <div class="leg"><div class="ldot" style="background:var(--blue)"></div>Среднее</div>
       <div class="leg"><div class="ldot" style="background:var(--red-mid)"></div>Мало</div>
       <div class="leg"><div style="width:9px;height:13px;border-left:3px solid var(--red-mid)"></div>Критично</div>
     </div>
@@ -928,7 +931,9 @@ function renderTable(cat) {
     const s = state[cat][i]||{val:'',unit:item.unit,crit:item.crit,note:''};
     const ok = getThresh(cat,i,'ok'), mid = getThresh(cat,i,'mid'), low = getThresh(cat,i,'low');
     const st = getStatus(s.val, ok, mid);
-    const nc = 'tnum'+(st==='low'?' hl-low':st==='mid'?' hl-mid':'');
+    const isPrev = !!s.fromPrev && s.val !== '' && s.val !== null;
+    const nc = 'tnum'+(isPrev?' from-prev':(st==='low'?' hl-low':st==='mid'?' hl-mid':''));
+    const prevTag = isPrev ? `<div class="prev-tag">прошлая${prevDate?': '+prevDate:''}</div>` : '';
     const tr = document.createElement('tr');
     tr.className = s.crit ? 'rc' : 'rn';
     const thEl = v => canEditThresh
@@ -936,7 +941,7 @@ function renderTable(cat) {
       : `<span style="font-size:12px;color:var(--text2)">${v}</span>`;
     tr.innerHTML = `
       <td style="font-size:13px">${item.name}</td>
-      <td><input type="number" class="${nc}" value="${s.val}" placeholder="0" min="0" step="0.1" data-cat="${cat}" data-i="${i}" onchange="onVal(this)"></td>
+      <td><input type="number" class="${nc}" value="${s.val}" placeholder="0" min="0" step="0.1" data-cat="${cat}" data-i="${i}" onchange="onVal(this)">${prevTag}</td>
       <td><select class="tsel" data-cat="${cat}" data-i="${i}" onchange="onUnit(this)">${['кг','г','л','мл','шт','пар','рул','уп'].map(u=>`<option${u===(s.unit||item.unit)?' selected':''}>${u}</option>`).join('')}</select></td>
       <td>${thEl(ok)}</td><td>${thEl(mid)}</td><td>${thEl(low)}</td>
       <td id="stc-${slugCat(cat)}-${i}">${badge(st)}</td>
@@ -1035,6 +1040,10 @@ async function saveItemsToSheets() {
 function onVal(el) {
   const cat=el.dataset.cat, i=+el.dataset.i;
   state[cat][i].val=el.value;
+  state[cat][i].fromPrev=false; // введено вручную сейчас — больше не "старое"
+  el.classList.remove('from-prev');
+  const tag = el.parentElement && el.parentElement.querySelector('.prev-tag');
+  if (tag) tag.remove();
   refreshRow(cat,i); updateSummary(); buildPurchaseList(); updateProgress();
 }
 function onUnit(el) { state[el.dataset.cat][+el.dataset.i].unit=el.value; }
@@ -1087,7 +1096,7 @@ function buildPurchaseList() {
       ?`<a href="${sv.url}" target="_blank" style="font-size:11px;color:var(--blue);margin-left:4px;white-space:nowrap">↗ ${sv.name}</a>`
       :`<span style="font-size:11px;color:var(--text3);margin-left:4px;white-space:nowrap">${sv.name}</span>`
     ).join('');
-    d.innerHTML=`<div class="pdot" style="background:${s.crit?'var(--red-mid)':'var(--amber-mid)'}"></div><div class="pname">${it.name}<span class="pcat">${cat}</span>${supLinks}</div><div class="pcurr">сейчас: ${s.val||'—'} ${unit}</div>${s.crit?'<span class="ptag ptag-r">Критично</span>':''}`;
+    d.innerHTML=`<div class="pdot" style="background:var(--red-mid)"></div><div class="pname">${it.name}<span class="pcat">${cat}</span>${supLinks}</div><div class="pcurr">сейчас: ${s.val||'—'} ${unit}</div>${s.crit?'<span class="ptag ptag-r">Критично</span>':''}`;
     lEl.appendChild(d);
   });
   if(!mids.length) mEl.innerHTML='<div class="pempty">Нет позиций</div>';
@@ -1098,7 +1107,7 @@ function buildPurchaseList() {
       ?`<a href="${sv.url}" target="_blank" style="font-size:11px;color:var(--blue);margin-left:4px;white-space:nowrap">↗ ${sv.name}</a>`
       :`<span style="font-size:11px;color:var(--text3);margin-left:4px;white-space:nowrap">${sv.name}</span>`
     ).join('');
-    d.innerHTML=`<div class="pdot" style="background:var(--amber-mid)"></div><div class="pname">${it.name}<span class="pcat">${cat}</span>${supLinks2}</div><div class="pcurr">сейчас: ${s.val||'—'} ${unit}</div><span class="ptag ptag-a">Среднее</span>`;
+    d.innerHTML=`<div class="pdot" style="background:var(--blue)"></div><div class="pname">${it.name}<span class="pcat">${cat}</span>${supLinks2}</div><div class="pcurr">сейчас: ${s.val||'—'} ${unit}</div><span class="ptag ptag-a">Среднее</span>`;
     mEl.appendChild(d);
   });
   document.getElementById('cnt-low').textContent=lows.length;
@@ -1211,6 +1220,7 @@ async function loadFromSheets() {
     const d = await r.json();
     if (d.status === 'ok' && d.items && d.items.length) {
       lastDate = d.date; lastWho = d.who; lastWish = d.wish;
+      prevDate = d.date || '';
       if (d.date) document.getElementById('inv-date').value = d.date;
       if (d.who)  document.getElementById('inv-who').value = d.who;
       if (d.wish) { const w = document.getElementById('wish-text'); if (w) w.value = d.wish; }
@@ -1223,6 +1233,8 @@ async function loadFromSheets() {
           state[cat][idx].val  = item.val;
           state[cat][idx].unit = item.unit;
           state[cat][idx].note = item.note;
+          // помечаем как значение из прошлой инвентаризации (если не пустое)
+          state[cat][idx].fromPrev = (item.val !== '' && item.val !== null && item.val !== undefined);
           // crit берём из настроек (loadSettingsFromSheets), НЕ из остатков
         }
       });
@@ -1469,7 +1481,8 @@ function loadThreshLocal() {
 function newInv() {
   if(!confirm('Очистить все значения? Пороги сохранятся.')) return;
   const cats=ROLE_CATS[currentRole]||[];
-  cats.forEach(cat=>{ (items[cat]||[]).forEach((_,i)=>{ if(state[cat]&&state[cat][i]) state[cat][i].val=''; }); });
+  cats.forEach(cat=>{ (items[cat]||[]).forEach((_,i)=>{ if(state[cat]&&state[cat][i]){ state[cat][i].val=''; state[cat][i].fromPrev=false; } }); });
+  prevDate='';
   document.getElementById('inv-date').value=new Date().toISOString().split('T')[0];
   cats.forEach(c=>renderTable(c));
   updateSummary(); buildPurchaseList(); setSyncPill('','Не сохранено');
@@ -1899,7 +1912,7 @@ function buildPurchaseBySupplier(lows, mids) {
       <div class="p-list">`;
 
     items.sort((a,b) => (b.crit?1:0)-(a.crit?1:0)).forEach(item => {
-      const urgColor = item.urgency==='low' ? 'var(--red-mid)' : 'var(--amber-mid)';
+      const urgColor = item.urgency==='low' ? 'var(--red-mid)' : 'var(--blue)';
       const urgTag = item.urgency==='low'
         ? `<span class="ptag ptag-r">Срочно</span>`
         : `<span class="ptag ptag-a">Пополнить</span>`;
@@ -1921,7 +1934,7 @@ function buildPurchaseBySupplier(lows, mids) {
       <div class="ph"><span style="font-size:13px;font-weight:500;color:var(--text2)">Поставщик не указан</span></div>
       <div class="p-list">`;
     noSupplier.sort((a,b)=>(b.crit?1:0)-(a.crit?1:0)).forEach(item => {
-      const urgColor = item.urgency==='low' ? 'var(--red-mid)' : 'var(--amber-mid)';
+      const urgColor = item.urgency==='low' ? 'var(--red-mid)' : 'var(--blue)';
       html += `<div class="pitem">
         <div class="pdot" style="background:${urgColor}"></div>
         <div class="pname">${item.name}<span class="pcat">${item.cat}</span></div>
