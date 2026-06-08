@@ -152,6 +152,8 @@ tr:hover td{background:#FAFAF8}
 .btn-tg:hover{background:#1a9bde}
 .btn-sm{font-size:12px;color:var(--text3);border-color:var(--border);padding:7px 12px}
 .print-only{display:none}
+.mgr-only{display:none}
+.staff-only{display:none}
 .complete-check{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:.5px solid var(--border);font-size:13px}
 .complete-check:last-child{border-bottom:none}
 .complete-check-icon{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
@@ -1930,10 +1932,16 @@ function buildPurchaseBySupplier(lows, mids) {
 
 // ==================== COMPLETION ====================
 function applyRoleUI() {
-  const btn = document.getElementById('btn-complete');
-  if (!btn) return;
-  // Show complete button only for baker and barista
-  btn.style.display = (currentRole === 'baker' || currentRole === 'barista') ? 'flex' : 'none';
+  const isManager = currentRole === 'manager';
+  const isStaff = currentRole === 'baker' || currentRole === 'barista';
+  // Manager buttons
+  document.querySelectorAll('.mgr-only').forEach(el => {
+    el.style.display = isManager ? 'flex' : 'none';
+  });
+  // Staff buttons
+  document.querySelectorAll('.staff-only').forEach(el => {
+    el.style.display = isStaff ? 'flex' : 'none';
+  });
 }
 
 function getCatFillStatus() {
@@ -1999,12 +2007,10 @@ function tryComplete() {
 
 async function confirmComplete() {
   closeModal('complete-modal');
-  // Save to Sheets first
+  setSyncPill('busy', '💾 Сохраняю и отправляю...');
   await saveToSheets();
-  // Then send to Telegram
-  if (SCRIPT_URL) await sendToTelegram();
-  // Show success
-  setSyncPill('ok', '✅ Отчёт завершён и отправлен');
+  await sendToTelegram();
+  setSyncPill('ok', '✅ Отчёт сохранён и отправлен');
 }
 
 function exportPDF() {
