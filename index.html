@@ -432,18 +432,17 @@ tr:hover td{background:#FAFAF8}
         </div>
       </div>
       <div class="sup-form-group">
-        <label>Как делать заказ</label>
-        <select class="sup-form-select" id="sf-order-method">
-          <option value="">— не указано —</option>
-          <option>Через сайт</option>
-          <option>Через менеджера (звонок)</option>
-          <option>Через менеджера (WhatsApp)</option>
-          <option>Через менеджера (Telegram)</option>
-          <option>Через менеджера (email)</option>
-          <option>Самовывоз</option>
-          <option>Доставка по заявке</option>
-          <option>Приложение</option>
-        </select>
+        <label>Как делать заказ (можно несколько)</label>
+        <div id="sf-order-methods" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0">
+          <label class="sup-cat-check"><input type="checkbox" value="Через сайт"> Через сайт</label>
+          <label class="sup-cat-check"><input type="checkbox" value="Звонок"> Звонок</label>
+          <label class="sup-cat-check"><input type="checkbox" value="WhatsApp"> WhatsApp</label>
+          <label class="sup-cat-check"><input type="checkbox" value="Telegram"> Telegram</label>
+          <label class="sup-cat-check"><input type="checkbox" value="Email"> Email</label>
+          <label class="sup-cat-check"><input type="checkbox" value="Самовывоз"> Самовывоз</label>
+          <label class="sup-cat-check"><input type="checkbox" value="Доставка по заявке"> Доставка по заявке</label>
+          <label class="sup-cat-check"><input type="checkbox" value="Приложение"> Приложение</label>
+        </div>
         <input class="sup-form-input" id="sf-order-note" placeholder="Уточнение: ссылка, номер, адрес почты..." style="margin-top:6px">
       </div>
       <div class="sup-form-group">
@@ -1005,6 +1004,7 @@ function onCrit(el) {
   state[cat][i].crit=!state[cat][i].crit;
   el.classList.toggle('on');
   el.closest('tr').className=state[cat][i].crit?'rc':'rn';
+  saveCritLocal();
 }
 function refreshRow(cat,i) {
   const it=(items[cat]||[])[i]; if(!it) return;
@@ -1165,7 +1165,8 @@ async function loadFromSheets() {
         }
       });
       const cats=ROLE_CATS[currentRole]||[];
-      loadThreshLocal(); // restore local thresholds before rendering
+      loadThreshLocal();
+      loadCritLocal();
       cats.forEach(c=>renderTable(c));
       updateSummary(); buildPurchaseList();
       setSyncPill('ok','✓ Данные загружены');
@@ -1183,6 +1184,7 @@ async function loadFromSheets() {
         if(bk.wish) { const w=document.getElementById('wish-text'); if(w) w.value=bk.wish; }
         const cats=ROLE_CATS[currentRole]||[];
         loadThreshLocal();
+        loadCritLocal();
         cats.forEach(c=>renderTable(c));
         updateSummary(); buildPurchaseList();
         setSyncPill('ok','✓ Загружено из кэша');
@@ -1254,6 +1256,31 @@ function setSyncPill(cls,txt) { const p=document.getElementById('sync-pill'); p.
 
 function saveThreshLocal() {
   try { localStorage.setItem('bv_thresh_v1', JSON.stringify(thresh)); } catch(e) {}
+}
+
+function saveCritLocal() {
+  const critMap = {};
+  Object.keys(state).forEach(cat => {
+    critMap[cat] = {};
+    Object.keys(state[cat]).forEach(i => {
+      if (state[cat][i].crit !== undefined) critMap[cat][i] = state[cat][i].crit;
+    });
+  });
+  try { localStorage.setItem('bv_crit_v1', JSON.stringify(critMap)); } catch(e) {}
+}
+
+function loadCritLocal() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('bv_crit_v1') || 'null');
+    if (saved) {
+      Object.keys(saved).forEach(cat => {
+        if (!state[cat]) return;
+        Object.keys(saved[cat]).forEach(i => {
+          if (state[cat][i]) state[cat][i].crit = saved[cat][i];
+        });
+      });
+    }
+  } catch(e) {}
 }
 
 function loadThreshLocal() {
@@ -1348,6 +1375,7 @@ function logout() {
 document.getElementById('inv-date').value = new Date().toISOString().split('T')[0];
 loadSuppliers();
 loadThreshLocal();
+loadCritLocal();
 const savedUrl = localStorage.getItem(LS_URL);
 if(savedUrl) { SCRIPT_URL=savedUrl; document.getElementById('setup-overlay').classList.remove('open'); showLogin(); }
 
@@ -1399,7 +1427,7 @@ function renderSuppliers() {
           <div class="sup-field"><label>Мин. заказ</label><div class="sup-field-val">${sup.minorder||'—'}</div></div>
         </div>
         ${sup.contact?`<div class="sup-field"><label>Контакт</label><div class="sup-field-val">${sup.contact}</div></div>`:''}
-        ${sup.orderMethod?`<div class="sup-field"><label>Как заказывать</label><div class="sup-field-val" style="display:flex;flex-direction:column;gap:2px"><span style="font-weight:500">${sup.orderMethod}</span>${sup.orderNote?`<span style="font-size:12px;color:var(--text2)">${sup.orderNote}</span>`:''}</div></div>`:''}
+        ${(sup.orderMethods&&sup.orderMethods.length||sup.orderMethod)?`<div class="sup-field"><label>Как заказывать</label><div class="sup-field-val" style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;flex-wrap:wrap;gap:4px">${(Array.isArray(sup.orderMethods)?sup.orderMethods:(sup.orderMethod?[sup.orderMethod]:[])).map(m=>`<span class="sup-badge sup-badge-neutral">${m}</span>`).join('')}</div>${sup.orderNote?`<span style="font-size:12px;color:var(--text2)">${sup.orderNote}</span>`:''}</div></div>`:''}
         ${sup.address?`<div class="sup-field"><label>Адрес</label><div class="sup-field-val">${sup.address}</div></div>`:''}
         ${sup.url?`<div class="sup-field"><label>Сайт</label><div class="sup-field-val"><a href="${sup.url}" target="_blank" style="color:var(--blue)">${sup.url}</a></div></div>`:''}
         ${sup.items&&sup.items.length?`<div class="sup-field"><label>Закупаем</label><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px">${sup.items.map(i=>`<span class="sup-badge sup-badge-neutral">${i}</span>`).join('')}</div></div>`:''}
@@ -1437,7 +1465,10 @@ function openSupModal(idx) {
   document.getElementById('sf-address').value = sup.address||'';
   document.getElementById('sf-contact').value = sup.contact||'';
   document.getElementById('sf-url').value = sup.url||'';
-  document.getElementById('sf-order-method').value = sup.orderMethod||'';
+  const orderMethods = Array.isArray(sup.orderMethods) ? sup.orderMethods : (sup.orderMethod ? [sup.orderMethod] : []);
+  document.querySelectorAll('#sf-order-methods input[type=checkbox]').forEach(cb => {
+    cb.checked = orderMethods.includes(cb.value);
+  });
   document.getElementById('sf-order-note').value = sup.orderNote||'';
   document.getElementById('sf-comment').value = sup.comment||'';
   supEditItems = sup.items ? [...sup.items] : [];
@@ -1545,7 +1576,8 @@ function saveSupplier() {
     address: document.getElementById('sf-address').value.trim(),
     contact: document.getElementById('sf-contact').value.trim(),
     url: document.getElementById('sf-url').value.trim(),
-    orderMethod: document.getElementById('sf-order-method').value,
+    orderMethods: Array.from(document.querySelectorAll('#sf-order-methods input[type=checkbox]:checked')).map(cb=>cb.value),
+    orderMethod: Array.from(document.querySelectorAll('#sf-order-methods input[type=checkbox]:checked')).map(cb=>cb.value).join(', '),
     orderNote: document.getElementById('sf-order-note').value.trim(),
     comment: document.getElementById('sf-comment').value.trim(),
     items: [...supEditItems]
@@ -1601,8 +1633,9 @@ function buildPurchaseBySupplier(lows, mids) {
   let html = `<div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:10px">📦 Список закупок по поставщикам</div>`;
 
   Object.entries(grouped).forEach(([name, {sup, items}]) => {
-    const orderInfo = sup.orderMethod
-      ? `<span style="font-size:11px;color:var(--text2);margin-left:8px">${sup.orderMethod}${sup.orderNote ? ' · '+sup.orderNote : ''}</span>`
+    const methods = Array.isArray(sup.orderMethods) ? sup.orderMethods : (sup.orderMethod ? [sup.orderMethod] : []);
+    const orderInfo = methods.length
+      ? `<span style="font-size:11px;color:var(--text2);margin-left:8px">${methods.join(' · ')}${sup.orderNote ? ' · '+sup.orderNote : ''}</span>`
       : '';
     const contactInfo = sup.contact
       ? `<span style="font-size:11px;color:var(--text3);margin-left:8px">${sup.contact}</span>`
