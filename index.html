@@ -407,7 +407,6 @@ tr:hover td{background:#FAFAF8}
             <label class="sup-cat-check"><input type="checkbox" value="Типография"> Типография</label>
             <label class="sup-cat-check"><input type="checkbox" value="Рабочая одежда"> Рабочая одежда</label>
             <label class="sup-cat-check"><input type="checkbox" value="Дизайн"> Дизайн</label>
-            <label class="sup-cat-check"><input type="checkbox" value="Прочие"> Прочие</label>
             <label class="sup-cat-check"><input type="checkbox" value="__other__" id="sf-cat-other-check" onchange="toggleCatOther(this)"> Другое</label>
           </div>
           <input class="sup-form-input" id="sf-cat-other-text" placeholder="Введи категорию..." style="display:none;margin-top:4px">
@@ -423,14 +422,15 @@ tr:hover td{background:#FAFAF8}
           </select>
         </div>
         <div class="sup-form-group">
-          <label>Тип оплаты</label>
-          <select class="sup-form-select" id="sf-payment">
-            <option>Наличные</option>
-            <option>Карта</option>
-            <option>Счёт (invoice)</option>
-            <option>Предоплата</option>
-            <option>Смешанный</option>
-          </select>
+          <label>Тип оплаты (можно несколько)</label>
+          <div id="sf-payments" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0">
+            <label class="sup-cat-check"><input type="checkbox" value="Наличные"> Наличные</label>
+            <label class="sup-cat-check"><input type="checkbox" value="Карта"> Карта</label>
+            <label class="sup-cat-check"><input type="checkbox" value="Счёт (invoice)"> Счёт (invoice)</label>
+            <label class="sup-cat-check"><input type="checkbox" value="Предоплата"> Предоплата</label>
+            <label class="sup-cat-check"><input type="checkbox" value="__other__" id="sf-payment-other-check" onchange="togglePaymentOther(this)"> Другое</label>
+          </div>
+          <input class="sup-form-input" id="sf-payment-other-text" placeholder="Введи тип оплаты..." style="display:none;margin-top:4px">
         </div>
       </div>
       <div class="sup-form-row">
@@ -1350,6 +1350,12 @@ function toggleCatOther(cb) {
   if (!cb.checked) inp.value = '';
 }
 
+function togglePaymentOther(cb) {
+  const inp = document.getElementById('sf-payment-other-text');
+  inp.style.display = cb.checked ? 'block' : 'none';
+  if (!cb.checked) inp.value = '';
+}
+
 function saveAllNorms() {
   // Save all current threshold values from inputs to localStorage
   const cats = ROLE_CATS[currentRole] || [];
@@ -1638,9 +1644,11 @@ function renderSuppliers() {
   const relLabel = {ok:'Надёжный',neutral:'Нейтральный',bad:'Ненадёжный'};
 
   wrap.innerHTML = `
-    <div class="sup-cats">${SUP_CATS.map(c=>`<button class="sup-cat-btn${c===supFilterCat?' active':''}" onclick="setSupCat('${c}')">${c}</button>`).join('')}</div>
-    <div class="sup-grid" id="sup-grid"></div>
-    <button class="sup-add-btn" onclick="openSupModal()" style="margin-top:12px">+ Добавить поставщика</button>`;
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+      <div class="sup-cats" style="margin-bottom:0;flex:1">${SUP_CATS.map(c=>`<button class="sup-cat-btn${c===supFilterCat?' active':''}" onclick="setSupCat('${c}')">${c}</button>`).join('')}</div>
+      <button class="btn btn-dark" onclick="openSupModal()" style="white-space:nowrap">+ Добавить поставщика</button>
+    </div>
+    <div class="sup-grid" id="sup-grid"></div>`;
 
   const grid = document.getElementById('sup-grid');
   if (!filtered.length) {
@@ -1694,7 +1702,7 @@ function openSupModal(idx) {
   document.getElementById('sf-name').value = sup.name||'';
   // Handle cats as array or string (backward compat)
   const supCats = Array.isArray(sup.cats) ? sup.cats : (sup.cat ? [sup.cat] : []);
-  const knownCats = ['Ингредиенты','Снабжение','Упаковка','Типография','Рабочая одежда','Дизайн','Прочие'];
+  const knownCats = ['Ингредиенты','Снабжение','Упаковка','Типография','Рабочая одежда','Дизайн'];
   const otherCat = supCats.find(c => !knownCats.includes(c));
   document.querySelectorAll('#sf-cats input[type=checkbox]').forEach(cb => {
     if (cb.value === '__other__') { cb.checked = !!otherCat; }
@@ -1704,7 +1712,17 @@ function openSupModal(idx) {
   if (otherCat) { catOtherInp.style.display='block'; catOtherInp.value=otherCat; }
   else { catOtherInp.style.display='none'; catOtherInp.value=''; }
   document.getElementById('sf-reliability').value = sup.reliability||'ok';
-  document.getElementById('sf-payment').value = sup.payment||'Наличные';
+  // Тип оплаты — мультивыбор (поддержка старого строкового формата)
+  const payments = Array.isArray(sup.payments) ? sup.payments : (sup.payment ? sup.payment.split(',').map(s=>s.trim()).filter(Boolean) : []);
+  const knownPayments = ['Наличные','Карта','Счёт (invoice)','Предоплата'];
+  const otherPayment = payments.find(p => !knownPayments.includes(p));
+  document.querySelectorAll('#sf-payments input[type=checkbox]').forEach(cb => {
+    if (cb.value === '__other__') { cb.checked = !!otherPayment; }
+    else cb.checked = payments.includes(cb.value);
+  });
+  const payOtherInp = document.getElementById('sf-payment-other-text');
+  if (otherPayment) { payOtherInp.style.display='block'; payOtherInp.value=otherPayment; }
+  else { payOtherInp.style.display='none'; payOtherInp.value=''; }
   document.getElementById('sf-defer').value = sup.defer||'';
   document.getElementById('sf-minorder').value = sup.minorder||'';
   document.getElementById('sf-address').value = sup.address||'';
@@ -1825,10 +1843,19 @@ function saveSupplier() {
     cat: (()=>{
       const checked = Array.from(document.querySelectorAll('#sf-cats input[type=checkbox]:checked')).map(cb=>cb.value);
       const otherVal = document.getElementById('sf-cat-other-text').value.trim();
-      return checked.map(v => v==='__other__' ? otherVal : v).filter(Boolean).join(', ') || 'Прочие';
+      return checked.map(v => v==='__other__' ? otherVal : v).filter(Boolean).join(', ');
     })(),
     reliability: document.getElementById('sf-reliability').value,
-    payment: document.getElementById('sf-payment').value,
+    payments: (()=>{
+      const checked = Array.from(document.querySelectorAll('#sf-payments input[type=checkbox]:checked')).map(cb=>cb.value);
+      const otherVal = document.getElementById('sf-payment-other-text').value.trim();
+      return checked.map(v => v==='__other__' ? otherVal : v).filter(Boolean);
+    })(),
+    payment: (()=>{
+      const checked = Array.from(document.querySelectorAll('#sf-payments input[type=checkbox]:checked')).map(cb=>cb.value);
+      const otherVal = document.getElementById('sf-payment-other-text').value.trim();
+      return checked.map(v => v==='__other__' ? otherVal : v).filter(Boolean).join(', ');
+    })(),
     defer: document.getElementById('sf-defer').value.trim(),
     minorder: document.getElementById('sf-minorder').value.trim(),
     address: document.getElementById('sf-address').value.trim(),
@@ -1890,6 +1917,20 @@ function toggleSupPicker(btn, itemName) {
     ).join('');
   }
   menu.classList.add('open');
+  // если внизу мало места — открыть меню вверх
+  menu.classList.remove('up');
+  menu.style.bottom = '';
+  menu.style.top = '';
+  const rect = menu.getBoundingClientRect();
+  const btnRect = btn.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - btnRect.bottom;
+  if (spaceBelow < rect.height + 20 && btnRect.top > rect.height) {
+    menu.style.top = 'auto';
+    menu.style.bottom = '100%';
+  } else {
+    menu.style.top = '100%';
+    menu.style.bottom = 'auto';
+  }
 }
 function toggleItemSupplier(supIdx, itemName, checked, cb) {
   const sup = suppliers[supIdx];
