@@ -1249,6 +1249,7 @@ function setActiveTab(cat) {
   if (sec) {
     sec.style.display='';
     if(cat!=='__purchase'&&cat!=='__editor'&&cat!=='__suppliers') renderTable(cat);
+    if(cat==='__editor') renderEditorTable();
     if(cat==='__suppliers') renderSuppliers();
   }
 }
