@@ -540,7 +540,7 @@ tr:hover td{background:#FAFAF8}
   <div class="tbar-title">
     <img class="brand-logo" id="brand-logo" alt="BreadVenture">
     <span class="brand-tag">Инвентаризация</span>
-    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v8</span>
+    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v9</span>
   </div>
   <div class="tbar-meta">
     <div class="ml"><label>Дата</label><input type="date" class="mi" id="inv-date" style="width:130px"></div>
@@ -726,17 +726,18 @@ const DEFAULT_ITEMS = {
     {name:"Чай чёрный",unit:"уп",ok:1,mid:0.5,low:0,crit:false},
     {name:"Чай зелёный",unit:"уп",ok:1,mid:0.5,low:0,crit:false},
     {name:"Чай фруктовый",unit:"уп",ok:1,mid:0.5,low:0,crit:false},
-  ]
+  ],
+  "Общие расходники": []
 };
 
 // Role → visible categories
 const ROLE_CATS = {
-  baker:   ["Ингредиенты пекарни","Расходники пекарни"],
-  barista: ["Расходники бара","Ингредиенты бара"],
-  manager: ["Ингредиенты пекарни","Расходники пекарни","Расходники бара","Ингредиенты бара"]
+  baker:   ["Ингредиенты пекарни","Расходники пекарни","Общие расходники"],
+  barista: ["Расходники бара","Ингредиенты бара","Общие расходники"],
+  manager: ["Ингредиенты пекарни","Расходники пекарни","Расходники бара","Ингредиенты бара","Общие расходники"]
 };
 const CAT_ICONS = {
-  "Ингредиенты пекарни":"🌾","Расходники пекарни":"🧤","Расходники бара":"☕","Ингредиенты бара":"🍵"
+  "Ингредиенты пекарни":"🌾","Расходники пекарни":"🧤","Расходники бара":"☕","Ингредиенты бара":"🍵","Общие расходники":"📦"
 };
 
 // ==================== STATE ====================
@@ -1027,9 +1028,10 @@ function renderEditorTable() {
   if (!area) return;
   const its = items[editorCat]||[];
   area.innerHTML = `<div class="ed-table-wrap"><table class="ed-table">
-    <thead><tr><th style="min-width:160px">Название</th><th>Ед.</th><th>Норма</th><th>Среднее</th><th>Мало</th><th>Крит.</th><th style="width:36px"></th></tr></thead>
+    <thead><tr><th style="min-width:160px">Название</th><th>Ед.</th><th>Норма</th><th>Среднее</th><th>Мало</th><th>Крит.</th><th style="min-width:150px">Категория</th><th style="width:36px"></th></tr></thead>
     <tbody id="ed-tbody"></tbody></table></div>`;
   const tbody = document.getElementById('ed-tbody');
+  const allCats = ROLE_CATS.manager;
   const indexed = its.map((it,oi)=>({it,oi}));
   indexed.sort((a,b)=>(effCrit(editorCat,b.oi)?1:0)-(effCrit(editorCat,a.oi)?1:0)); // критичные — вверх
   indexed.forEach(({it,oi:i}) => {
@@ -1043,6 +1045,7 @@ function renderEditorTable() {
       <td><input type="number" class="ed-num" value="${midV}" step="0.1" onchange="edSetNorm('${editorCat}',${i},'mid',this.value)"></td>
       <td><input type="number" class="ed-num" value="${lowV}" step="0.1" onchange="edSetNorm('${editorCat}',${i},'low',this.value)"></td>
       <td><div class="ctog${critV?' on':''}" onclick="edToggleCrit('${editorCat}',${i},this)"></div></td>
+      <td><select class="ed-sel" onchange="moveEdRow('${editorCat}',${i},this.value)">${allCats.map(c=>`<option value="${c}"${c===editorCat?' selected':''}>${c}</option>`).join('')}</select></td>
       <td><button class="del-btn" onclick="delEdRow(${i})" title="Удалить">×</button></td>`;
     tbody.appendChild(tr);
   });
@@ -1085,20 +1088,55 @@ function addEdRow() {
 function delEdRow(i) {
   if (!confirm(`Удалить "${items[editorCat][i].name}"?`)) return;
   items[editorCat].splice(i,1);
-  // сдвигаем индексные карты state и thresh, чтобы нормы/крит остались привязаны к позициям
-  if (state[editorCat]) {
-    const ns = {};
-    Object.keys(state[editorCat]).forEach(k => { if(+k < i) ns[k]=state[editorCat][k]; else if(+k > i) ns[+k-1]=state[editorCat][k]; });
-    state[editorCat] = ns;
-  }
-  if (thresh[editorCat]) {
-    const nt = {};
-    Object.keys(thresh[editorCat]).forEach(k => { if(+k < i) nt[k]=thresh[editorCat][k]; else if(+k > i) nt[+k-1]=thresh[editorCat][k]; });
-    thresh[editorCat] = nt;
-  }
+  shiftCatMapsAfterRemove(editorCat, i);
   renderEditorTable();
   const cats = ROLE_CATS[currentRole];
   if (cats.includes(editorCat)) { initState([editorCat]); renderTable(editorCat); }
+}
+
+// Сдвиг индексных карт state/thresh после удаления позиции i из категории
+function shiftCatMapsAfterRemove(cat, i) {
+  if (state[cat]) {
+    const ns = {};
+    Object.keys(state[cat]).forEach(k => { if(+k < i) ns[k]=state[cat][k]; else if(+k > i) ns[+k-1]=state[cat][k]; });
+    state[cat] = ns;
+  }
+  if (thresh[cat]) {
+    const nt = {};
+    Object.keys(thresh[cat]).forEach(k => { if(+k < i) nt[k]=thresh[cat][k]; else if(+k > i) nt[+k-1]=thresh[cat][k]; });
+    thresh[cat] = nt;
+  }
+}
+
+// Перенос позиции i из fromCat в toCat с сохранением норм, критичности и текущего остатка
+function moveEdRow(fromCat, i, toCat) {
+  if (fromCat === toCat) return;
+  const it = (items[fromCat]||[])[i];
+  if (!it) return;
+  // снимаем эффективные значения ДО удаления
+  const ok = getThresh(fromCat,i,'ok'), mid = getThresh(fromCat,i,'mid'), low = getThresh(fromCat,i,'low');
+  const crit = effCrit(fromCat,i);
+  const src = (state[fromCat] && state[fromCat][i]) || {};
+  const val = src.val || '', note = src.note || '', everFilled = !!src.everFilled;
+  // удаляем из источника
+  items[fromCat].splice(i,1);
+  shiftCatMapsAfterRemove(fromCat, i);
+  // добавляем в приёмник
+  if (!items[toCat]) items[toCat] = [];
+  const ni = items[toCat].length;
+  items[toCat].push({name: it.name, unit: it.unit, ok, mid, low, crit});
+  if (!thresh[toCat]) thresh[toCat] = {};
+  thresh[toCat][ni] = {ok, mid, low};
+  if (!state[toCat]) state[toCat] = {};
+  state[toCat][ni] = {val, unit: it.unit, note, crit, everFilled};
+  // локально сохраняем и перерисовываем
+  saveThreshLocal(); saveCritLocal();
+  try { localStorage.setItem('bv_items_v1', JSON.stringify(items)); } catch(e) {}
+  renderEditorTable();
+  const cats = ROLE_CATS[currentRole] || [];
+  cats.forEach(c => { initState([c]); renderTable(c); });
+  updateSummary(); buildPurchaseList();
+  setSyncPill('busy','Перенесено — нажми «Сохранить списки»');
 }
 
 async function saveItemsToSheets() {
