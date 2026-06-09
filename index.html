@@ -543,7 +543,7 @@ tr:hover td{background:#FAFAF8}
   <div class="tbar-title">
     <img class="brand-logo" id="brand-logo" alt="BreadVenture">
     <span class="brand-tag">Инвентаризация</span>
-    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v10</span>
+    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v12</span>
   </div>
   <div class="tbar-meta">
     <div class="ml"><label>Дата</label><input type="date" class="mi" id="inv-date" style="width:130px"></div>
@@ -602,7 +602,7 @@ const SUP_LS = 'bv_suppliers_v1';
 
 // ==================== DATA ====================
 const DEFAULT_ITEMS = {
-  "Ингредиенты пекарни": [
+  "Ингредиенты пекарские": [
     {name:"Мука T00 (капуто)",unit:"кг",ok:20,mid:10,low:5,crit:true},
     {name:"Мука T500 (чековин)",unit:"кг",ok:15,mid:8,low:3,crit:true},
     {name:"ЦЗ пшеничная",unit:"кг",ok:10,mid:5,low:2,crit:false},
@@ -645,7 +645,7 @@ const DEFAULT_ITEMS = {
     {name:"Сыр гауда",unit:"кг",ok:2,mid:1,low:0.3,crit:false},
     {name:"Тмин",unit:"г",ok:200,mid:100,low:30,crit:false},
   ],
-  "Расходники пекарни": [
+  "Расходники пекарские": [
     {name:"Корзины",unit:"шт",ok:10,mid:5,low:2,crit:false},
     {name:"Шапочки для корзинок",unit:"шт",ok:20,mid:10,low:5,crit:false},
     {name:"Перчатки L",unit:"пар",ok:2,mid:1,low:0,crit:false},
@@ -735,13 +735,16 @@ const DEFAULT_ITEMS = {
 
 // Role → visible categories
 const ROLE_CATS = {
-  baker:   ["Ингредиенты пекарни","Расходники пекарни","Общие расходники"],
+  baker:   ["Ингредиенты пекарские","Расходники пекарские","Общие расходники"],
   barista: ["Расходники бара","Ингредиенты бара","Общие расходники"],
-  manager: ["Ингредиенты пекарни","Расходники пекарни","Расходники бара","Ингредиенты бара","Общие расходники"]
+  manager: ["Ингредиенты пекарские","Расходники пекарские","Расходники бара","Ингредиенты бара","Общие расходники"]
 };
 const CAT_ICONS = {
-  "Ингредиенты пекарни":"🌾","Расходники пекарни":"🧤","Расходники бара":"☕","Ингредиенты бара":"🍵","Общие расходники":"📦"
+  "Ингредиенты пекарские":"🌾","Расходники пекарские":"🧤","Расходники бара":"☕","Ингредиенты бара":"🍵","Общие расходники":"📦"
 };
+// Миграция старых имён категорий → новые (данные в Sheets могли сохраниться под старыми)
+const CAT_RENAME = {"Ингредиенты пекарни":"Ингредиенты пекарские","Расходники пекарни":"Расходники пекарские"};
+function normalizeCat(c){ return CAT_RENAME[c] || c; }
 
 // ==================== STATE ====================
 const LS_URL = 'bv_script_url';
@@ -1031,7 +1034,7 @@ function renderEditorTable() {
   if (!area) return;
   const its = items[editorCat]||[];
   area.innerHTML = `<div class="ed-table-wrap"><table class="ed-table">
-    <thead><tr><th style="width:26px"></th><th style="min-width:160px">Название</th><th>Ед.</th><th>Норма</th><th>Среднее</th><th>Мало</th><th>Крит.</th><th style="min-width:150px">Категория</th><th style="width:36px"></th></tr></thead>
+    <thead><tr><th style="width:26px"></th><th style="min-width:160px">Название</th><th>Ед.</th><th>Норма</th><th>Среднее</th><th>Мало</th><th>Крит.</th><th style="min-width:150px">Категория</th><th style="min-width:140px">Заметка</th><th style="width:36px"></th></tr></thead>
     <tbody id="ed-tbody"></tbody></table></div>`;
   const tbody = document.getElementById('ed-tbody');
   const allCats = ROLE_CATS.manager;
@@ -1049,6 +1052,7 @@ function renderEditorTable() {
       <td><input type="number" class="ed-num" value="${lowV}" step="0.1" onchange="edSetNorm('${editorCat}',${i},'low',this.value)"></td>
       <td><div class="ctog${critV?' on':''}" onclick="edToggleCrit('${editorCat}',${i},this)"></div></td>
       <td><select class="ed-sel" onchange="moveEdRow('${editorCat}',${i},this.value)">${allCats.map(c=>`<option value="${c}"${c===editorCat?' selected':''}>${c}</option>`).join('')}</select></td>
+      <td><input type="text" class="tnote" value="${(it.note||(state[editorCat]&&state[editorCat][i]&&state[editorCat][i].note)||'').replace(/"/g,'&quot;')}" placeholder="..." onchange="edSetNote('${editorCat}',${i},this.value)"></td>
       <td><button class="del-btn" onclick="delEdRow(${i})" title="Удалить">×</button></td>`;
     tr.ondragover = (e)=>{ e.preventDefault(); tr.classList.add('drag-over'); };
     tr.ondragleave = ()=> tr.classList.remove('drag-over');
@@ -1108,6 +1112,19 @@ function edSetNorm(cat,i,field,value){
   if(ROLE_CATS[currentRole] && ROLE_CATS[currentRole].includes(cat)) refreshRow(cat,i);
 }
 // Правка критичности в редакторе пишется и в базу (items), и в override (state)
+// Заметка в редакторе пишется в state (и синхронизируется как постоянная)
+function edSetNote(cat,i,val){
+  if(!state[cat]) state[cat]={};
+  if(!state[cat][i]) state[cat][i]={val:'',unit:'',note:''};
+  state[cat][i].note=val;
+  saveNotesLocal();
+  if(currentRole==='manager') syncSettingsToSheets();
+  if(ROLE_CATS[currentRole] && ROLE_CATS[currentRole].includes(cat)) refreshNoteCell(cat,i,val);
+}
+function refreshNoteCell(cat,i,val){
+  const inp=document.querySelector(`input.tnote[data-cat="${cat}"][data-i="${i}"]`);
+  if(inp && inp.value!==val) inp.value=val;
+}
 function edToggleCrit(cat,i,el){
   const cur=effCrit(cat,i);
   if(items[cat]&&items[cat][i]) items[cat][i].crit=!cur;
@@ -1216,7 +1233,13 @@ function onVal(el) {
   refreshRow(cat,i); updateSummary(); buildPurchaseList(); updateProgress();
 }
 function onUnit(el) { state[el.dataset.cat][+el.dataset.i].unit=el.value; }
-function onNote(el) { state[el.dataset.cat][+el.dataset.i].note=el.value; }
+function onNote(el) {
+  const cat=el.dataset.cat, i=+el.dataset.i;
+  if(!state[cat][i]) state[cat][i]={val:'',unit:'',note:''};
+  state[cat][i].note=el.value;
+  saveNotesLocal();
+  if (currentRole === 'manager') syncSettingsToSheets();
+}
 function onThresh(el) {
   const cat=el.dataset.cat, i=+el.dataset.i, f=el.dataset.f;
   if(!thresh[cat][i]) thresh[cat][i]={};
@@ -1398,14 +1421,15 @@ async function loadFromSheets() {
       if (currentName) document.getElementById('inv-who').value = currentName;
       if (d.wish) { const w = document.getElementById('wish-text'); if (w) w.value = d.wish; }
       d.items.forEach(item => {
-        const cat = item.cat; if (!items[cat]) return;
+        const cat = normalizeCat(item.cat); if (!items[cat]) return;
         const idx = items[cat].findIndex(it => it.name === item.name);
         if (idx >= 0) {
           if (!state[cat]) state[cat] = {};
           if (!state[cat][idx]) state[cat][idx] = {};
           state[cat][idx].val  = item.val;
           state[cat][idx].unit = item.unit;
-          state[cat][idx].note = item.note;
+          // постоянная заметка из настроек важнее; из остатков берём, только если её нет
+          if (!state[cat][idx].note && item.note) state[cat][idx].note = item.note;
           // помечаем как значение из прошлой инвентаризации (если не пустое)
           const hadVal = (item.val !== '' && item.val !== null && item.val !== undefined);
           state[cat][idx].fromPrev = hadVal;
@@ -1433,6 +1457,7 @@ async function loadFromSheets() {
         if (bk.wish) { const w = document.getElementById('wish-text'); if (w) w.value = bk.wish; }
         loadThreshLocal();
         loadCritLocal();
+        loadNotesLocal();
         cats.forEach(c => renderTable(c));
         if (currentRole === 'manager') renderEditorTable();
         updateSummary(); buildPurchaseList();
@@ -1632,20 +1657,47 @@ function saveCritLocal() {
   try { localStorage.setItem('bv_crit_v1', JSON.stringify(critMap)); } catch(e) {}
 }
 
+function saveNotesLocal() {
+  const notesMap = {};
+  Object.keys(state).forEach(cat => {
+    notesMap[cat] = {};
+    Object.keys(state[cat]).forEach(i => {
+      if (state[cat][i] && state[cat][i].note) notesMap[cat][i] = state[cat][i].note;
+    });
+  });
+  try { localStorage.setItem('bv_notes_v1', JSON.stringify(notesMap)); } catch(e) {}
+}
+
+function loadNotesLocal() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('bv_notes_v1') || 'null');
+    if (saved) {
+      Object.keys(saved).forEach(cat => {
+        const nc = normalizeCat(cat);
+        if (!state[nc]) return;
+        Object.keys(saved[cat]).forEach(i => {
+          if (state[nc][i]) state[nc][i].note = saved[cat][i];
+        });
+      });
+    }
+  } catch(e) {}
+}
+
 async function syncSettingsToSheets() {
   if (!SCRIPT_URL) return;
   try {
-    const critMap = {};
+    const critMap = {}, notesMap = {};
     Object.keys(state).forEach(cat => {
-      critMap[cat] = {};
+      critMap[cat] = {}; notesMap[cat] = {};
       Object.keys(state[cat]).forEach(i => {
         if (state[cat][i] && state[cat][i].crit !== undefined) critMap[cat][i] = state[cat][i].crit;
+        if (state[cat][i] && state[cat][i].note) notesMap[cat][i] = state[cat][i].note;
       });
     });
     await fetch(SCRIPT_URL, {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: 'action=setSettings&data=' + encodeURIComponent(JSON.stringify({thresh, crit: critMap}))
+      body: 'action=setSettings&data=' + encodeURIComponent(JSON.stringify({thresh, crit: critMap, notes: notesMap}))
     });
   } catch(e) {}
 }
@@ -1659,7 +1711,7 @@ async function loadCustomItemsFromSheets() {
       // Merge with default items - update existing categories
       Object.keys(d.items).forEach(cat => {
         if (d.items[cat] && d.items[cat].length) {
-          items[cat] = d.items[cat];
+          items[normalizeCat(cat)] = d.items[cat];
         }
       });
       // Save to localStorage
@@ -1677,9 +1729,10 @@ async function loadSettingsFromSheets() {
       // Load thresh
       if (d.thresh && Object.keys(d.thresh).length) {
         Object.keys(d.thresh).forEach(cat => {
-          if (!thresh[cat]) thresh[cat] = {};
+          const nc = normalizeCat(cat);
+          if (!thresh[nc]) thresh[nc] = {};
           Object.keys(d.thresh[cat]).forEach(i => {
-            thresh[cat][i] = {...(thresh[cat][i]||{}), ...d.thresh[cat][i]};
+            thresh[nc][i] = {...(thresh[nc][i]||{}), ...d.thresh[cat][i]};
           });
         });
         try { localStorage.setItem('bv_thresh_v1', JSON.stringify(thresh)); } catch(e) {}
@@ -1687,13 +1740,26 @@ async function loadSettingsFromSheets() {
       // Load crit
       if (d.crit && Object.keys(d.crit).length) {
         Object.keys(d.crit).forEach(cat => {
-          if (!state[cat]) state[cat] = {};
+          const nc = normalizeCat(cat);
+          if (!state[nc]) state[nc] = {};
           Object.keys(d.crit[cat]).forEach(i => {
-            if (!state[cat][i]) state[cat][i] = {val:'', unit:'', note:''};
-            state[cat][i].crit = d.crit[cat][i];
+            if (!state[nc][i]) state[nc][i] = {val:'', unit:'', note:''};
+            state[nc][i].crit = d.crit[cat][i];
           });
         });
         try { localStorage.setItem('bv_crit_v1', JSON.stringify(d.crit)); } catch(e) {}
+      }
+      // Load notes (постоянные заметки к позициям)
+      if (d.notes && Object.keys(d.notes).length) {
+        Object.keys(d.notes).forEach(cat => {
+          const nc = normalizeCat(cat);
+          if (!state[nc]) state[nc] = {};
+          Object.keys(d.notes[cat]).forEach(i => {
+            if (!state[nc][i]) state[nc][i] = {val:'', unit:'', note:''};
+            state[nc][i].note = d.notes[cat][i];
+          });
+        });
+        try { localStorage.setItem('bv_notes_v1', JSON.stringify(d.notes)); } catch(e) {}
       }
       // Рендер делает вызывающий код (loadFromSheets), здесь не рендерим
     }
@@ -1705,9 +1771,10 @@ function loadCritLocal() {
     const saved = JSON.parse(localStorage.getItem('bv_crit_v1') || 'null');
     if (saved) {
       Object.keys(saved).forEach(cat => {
-        if (!state[cat]) return;
+        const nc = normalizeCat(cat);
+        if (!state[nc]) return;
         Object.keys(saved[cat]).forEach(i => {
-          if (state[cat][i]) state[cat][i].crit = saved[cat][i];
+          if (state[nc][i]) state[nc][i].crit = saved[cat][i];
         });
       });
     }
@@ -1719,9 +1786,10 @@ function loadThreshLocal() {
     const saved = JSON.parse(localStorage.getItem('bv_thresh_v1') || 'null');
     if (saved) {
       Object.keys(saved).forEach(cat => {
-        if (!thresh[cat]) thresh[cat] = {};
+        const nc = normalizeCat(cat);
+        if (!thresh[nc]) thresh[nc] = {};
         Object.keys(saved[cat]).forEach(i => {
-          thresh[cat][i] = {...(thresh[cat][i]||{}), ...saved[cat][i]};
+          thresh[nc][i] = {...(thresh[nc][i]||{}), ...saved[cat][i]};
         });
       });
     }
@@ -1827,7 +1895,7 @@ function loadItemsLocal() {
     const saved = JSON.parse(localStorage.getItem('bv_items_v1') || 'null');
     if (saved && Object.keys(saved).length) {
       Object.keys(saved).forEach(cat => {
-        if (saved[cat] && saved[cat].length) items[cat] = saved[cat];
+        if (saved[cat] && saved[cat].length) items[normalizeCat(cat)] = saved[cat];
       });
     }
   } catch(e) {}
