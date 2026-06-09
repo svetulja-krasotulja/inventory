@@ -539,7 +539,7 @@ tr:hover td{background:#FAFAF8}
   <div class="tbar-title">
     <img class="brand-logo" id="brand-logo" alt="BreadVenture">
     <span class="brand-tag">Инвентаризация</span>
-    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v6</span>
+    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v7</span>
   </div>
   <div class="tbar-meta">
     <div class="ml"><label>Дата</label><input type="date" class="mi" id="inv-date" style="width:130px"></div>
@@ -1335,6 +1335,7 @@ async function loadFromSheets() {
     }
     // 5. ЕДИНСТВЕННЫЙ рендер — в самом конце, когда нормы и крит уже на месте
     cats.forEach(c => renderTable(c));
+    if (currentRole === 'manager') renderEditorTable(); // редактор "Списки" тоже обновляем загруженными данными
     updateSummary(); buildPurchaseList(); updateProgress();
     setSyncPill('ok', '✓ Данные загружены');
     // Бэкап локально
@@ -1351,6 +1352,7 @@ async function loadFromSheets() {
         loadThreshLocal();
         loadCritLocal();
         cats.forEach(c => renderTable(c));
+        if (currentRole === 'manager') renderEditorTable();
         updateSummary(); buildPurchaseList();
         setSyncPill('ok', '✓ Загружено из кэша');
       }
