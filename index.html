@@ -974,9 +974,9 @@ function renderTable(cat) {
   indexed.forEach(({it:item, oi:i}) => {
     const s = state[cat][i]||{val:'',unit:item.unit,crit:item.crit,note:''};
     const ok = getThresh(cat,i,'ok'), mid = getThresh(cat,i,'mid'), low = getThresh(cat,i,'low');
-    const st = getStatus(s.val, ok, mid);
+    const st = getStatus(s.val, ok, mid, !!s.everFilled);
     const isPrev = !!s.fromPrev && s.val !== '' && s.val !== null;
-    const nc = 'tnum'+(isPrev?' from-prev':(st==='low'?' hl-low':st==='mid'?' hl-mid':''));
+    const nc = 'tnum'+(isPrev?' from-prev':(isLowLike(st)?' hl-low':st==='mid'?' hl-mid':''));
     const prevTag = isPrev ? `<div class="prev-tag">прошлая${prevDate?': '+prevDate:''}</div>` : '';
     const tr = document.createElement('tr');
     tr.className = s.crit ? 'rc' : 'rn';
@@ -1030,16 +1030,46 @@ function renderEditorTable() {
   const tbody = document.getElementById('ed-tbody');
   its.forEach((it,i) => {
     const tr = document.createElement('tr');
+    const okV = getThresh(editorCat,i,'ok'), midV = getThresh(editorCat,i,'mid'), lowV = getThresh(editorCat,i,'low');
+    const critV = effCrit(editorCat,i);
     tr.innerHTML = `
       <td><input class="ed-inp" value="${it.name}" onchange="items['${editorCat}'][${i}].name=this.value"></td>
       <td><select class="ed-sel" onchange="items['${editorCat}'][${i}].unit=this.value">${['кг','г','л','мл','шт','пар','рул','уп'].map(u=>`<option${u===it.unit?' selected':''}>${u}</option>`).join('')}</select></td>
-      <td><input type="number" class="ed-num" value="${it.ok}" step="0.1" onchange="items['${editorCat}'][${i}].ok=parseFloat(this.value)||0"></td>
-      <td><input type="number" class="ed-num" value="${it.mid}" step="0.1" onchange="items['${editorCat}'][${i}].mid=parseFloat(this.value)||0"></td>
-      <td><input type="number" class="ed-num" value="${it.low}" step="0.1" onchange="items['${editorCat}'][${i}].low=parseFloat(this.value)||0"></td>
-      <td><div class="ctog${it.crit?' on':''}" onclick="items['${editorCat}'][${i}].crit=!items['${editorCat}'][${i}].crit;this.classList.toggle('on')"></div></td>
+      <td><input type="number" class="ed-num" value="${okV}" step="0.1" onchange="edSetNorm('${editorCat}',${i},'ok',this.value)"></td>
+      <td><input type="number" class="ed-num" value="${midV}" step="0.1" onchange="edSetNorm('${editorCat}',${i},'mid',this.value)"></td>
+      <td><input type="number" class="ed-num" value="${lowV}" step="0.1" onchange="edSetNorm('${editorCat}',${i},'low',this.value)"></td>
+      <td><div class="ctog${critV?' on':''}" onclick="edToggleCrit('${editorCat}',${i},this)"></div></td>
       <td><button class="del-btn" onclick="delEdRow(${i})" title="Удалить">×</button></td>`;
     tbody.appendChild(tr);
   });
+}
+
+// Эффективная критичность позиции: override (state) важнее базы (items)
+function effCrit(cat,i){
+  const s=state[cat]&&state[cat][i];
+  if(s&&s.crit!==undefined) return !!s.crit;
+  const it=(items[cat]||[])[i]||{};
+  return !!it.crit;
+}
+// Правка нормы в редакторе пишется и в базу (items), и в override (thresh) — чтобы оба экрана совпадали
+function edSetNorm(cat,i,field,value){
+  const v=parseFloat(value)||0;
+  if(items[cat]&&items[cat][i]) items[cat][i][field]=v;
+  if(!thresh[cat]) thresh[cat]={};
+  if(!thresh[cat][i]) thresh[cat][i]={};
+  thresh[cat][i][field]=v;
+  if(ROLE_CATS[currentRole] && ROLE_CATS[currentRole].includes(cat)) refreshRow(cat,i);
+}
+// Правка критичности в редакторе пишется и в базу (items), и в override (state)
+function edToggleCrit(cat,i,el){
+  const cur=effCrit(cat,i);
+  if(items[cat]&&items[cat][i]) items[cat][i].crit=!cur;
+  if(!state[cat]) state[cat]={};
+  if(!state[cat][i]) state[cat][i]={};
+  state[cat][i].crit=!cur;
+  el.classList.toggle('on');
+  saveCritLocal();
+  if(ROLE_CATS[currentRole] && ROLE_CATS[currentRole].includes(cat)) renderTable(cat);
 }
 
 function addEdRow() {
@@ -1051,10 +1081,16 @@ function addEdRow() {
 function delEdRow(i) {
   if (!confirm(`Удалить "${items[editorCat][i].name}"?`)) return;
   items[editorCat].splice(i,1);
+  // сдвигаем индексные карты state и thresh, чтобы нормы/крит остались привязаны к позициям
   if (state[editorCat]) {
     const ns = {};
     Object.keys(state[editorCat]).forEach(k => { if(+k < i) ns[k]=state[editorCat][k]; else if(+k > i) ns[+k-1]=state[editorCat][k]; });
     state[editorCat] = ns;
+  }
+  if (thresh[editorCat]) {
+    const nt = {};
+    Object.keys(thresh[editorCat]).forEach(k => { if(+k < i) nt[k]=thresh[editorCat][k]; else if(+k > i) nt[+k-1]=thresh[editorCat][k]; });
+    thresh[editorCat] = nt;
   }
   renderEditorTable();
   const cats = ROLE_CATS[currentRole];
@@ -1073,6 +1109,9 @@ async function saveItemsToSheets() {
       body:'action=setItems&data='+encodeURIComponent(JSON.stringify(items))
     }); const d = await r.json();
     if (d.status==='ok') {
+      // нормы/крит редактируются в редакторе через override — сохраняем и их
+      saveThreshLocal(); saveCritLocal();
+      await syncSettingsToSheets();
       setSyncPill('ok','✓ Списки сохранены');
       const cats = ROLE_CATS[currentRole];
       cats.forEach(c => { initState([c]); renderTable(c); });
@@ -1086,6 +1125,9 @@ function onVal(el) {
   const cat=el.dataset.cat, i=+el.dataset.i;
   state[cat][i].val=el.value;
   state[cat][i].fromPrev=false; // введено вручную сейчас — больше не "старое"
+  // если ввели любое число (в т.ч. 0) — позиция теперь считается "заполнявшейся".
+  // очистку поля НЕ сбрасываем: пустое у заполнявшейся позиции = ноль на складе
+  if (el.value!=='' && !isNaN(parseFloat(el.value))) state[cat][i].everFilled=true;
   el.classList.remove('from-prev');
   const tag = el.parentElement && el.parentElement.querySelector('.prev-tag');
   if (tag) tag.remove();
@@ -1110,10 +1152,10 @@ function onCrit(el) {
 }
 function refreshRow(cat,i) {
   const it=(items[cat]||[])[i]; if(!it) return;
-  const s=state[cat][i]; const st=getStatus(s.val, getThresh(cat,i,'ok'), getThresh(cat,i,'mid'));
+  const s=state[cat][i]; const st=getStatus(s.val, getThresh(cat,i,'ok'), getThresh(cat,i,'mid'), !!s.everFilled);
   const sc=document.getElementById(`stc-${slugCat(cat)}-${i}`); if(sc) sc.innerHTML=badge(st);
   const inp=document.querySelector(`input[data-cat="${cat}"][data-i="${i}"][type="number"]:not([data-f])`);
-  if(inp) inp.className='tnum'+(st==='low'?' hl-low':st==='mid'?' hl-mid':'');
+  if(inp) inp.className='tnum'+(isLowLike(st)?' hl-low':st==='mid'?' hl-mid':'');
 }
 
 // ==================== PURCHASE LIST ====================
@@ -1126,8 +1168,8 @@ function buildPurchaseList() {
   cats.forEach(cat=>{
     (items[cat]||[]).forEach((it,i)=>{
       const s=state[cat]&&state[cat][i]?state[cat][i]:{};
-      const st=getStatus(s.val||'', getThresh(cat,i,'ok'), getThresh(cat,i,'mid'));
-      if(st==='low') lows.push({it,cat,i,s});
+      const st=getStatus(s.val||'', getThresh(cat,i,'ok'), getThresh(cat,i,'mid'), !!s.everFilled);
+      if(isLowLike(st)) lows.push({it,cat,i,s});
       if(st==='mid') mids.push({it,cat,i,s});
     });
   });
@@ -1168,8 +1210,8 @@ function updateSummary() {
     (items[cat]||[]).forEach((it,i)=>{
       total++;
       const s=state[cat]&&state[cat][i]?state[cat][i]:{};
-      const st=getStatus(s.val||'', getThresh(cat,i,'ok'), getThresh(cat,i,'mid'));
-      if(st==='ok')ok++;else if(st==='mid')mid++;else if(st==='low')low++;else empty++;
+      const st=getStatus(s.val||'', getThresh(cat,i,'ok'), getThresh(cat,i,'mid'), !!s.everFilled);
+      if(st==='ok')ok++;else if(st==='mid')mid++;else if(isLowLike(st))low++;else empty++;
     });
   });
   document.getElementById('summary').innerHTML=`
@@ -1267,7 +1309,9 @@ async function loadFromSheets() {
       lastDate = d.date; lastWho = d.who; lastWish = d.wish;
       prevDate = d.date || '';
       if (d.date) document.getElementById('inv-date').value = d.date;
-      if (d.who)  document.getElementById('inv-who').value = d.who;
+      // "Кто заполнял" = текущий вошедший пользователь, НЕ автор прошлой инвентаризации.
+      // Имя из d.who сюда не подставляем, чтобы у Нади не появлялось "Нико" из прошлого отчёта.
+      if (currentName) document.getElementById('inv-who').value = currentName;
       if (d.wish) { const w = document.getElementById('wish-text'); if (w) w.value = d.wish; }
       d.items.forEach(item => {
         const cat = item.cat; if (!items[cat]) return;
@@ -1279,7 +1323,10 @@ async function loadFromSheets() {
           state[cat][idx].unit = item.unit;
           state[cat][idx].note = item.note;
           // помечаем как значение из прошлой инвентаризации (если не пустое)
-          state[cat][idx].fromPrev = (item.val !== '' && item.val !== null && item.val !== undefined);
+          const hadVal = (item.val !== '' && item.val !== null && item.val !== undefined);
+          state[cat][idx].fromPrev = hadVal;
+          // позицию когда-либо заполняли → пустое поле потом трактуется как "ноль на складе"
+          if (hadVal) state[cat][idx].everFilled = true;
           // crit берём из настроек (loadSettingsFromSheets), НЕ из остатков
         }
       });
@@ -1297,7 +1344,7 @@ async function loadFromSheets() {
       if (bk && bk.state) {
         state = bk.state;
         if (bk.date) document.getElementById('inv-date').value = bk.date;
-        if (bk.who)  document.getElementById('inv-who').value = bk.who;
+        if (currentName) document.getElementById('inv-who').value = currentName;
         if (bk.wish) { const w = document.getElementById('wish-text'); if (w) w.value = bk.wish; }
         loadThreshLocal();
         loadCritLocal();
@@ -1349,7 +1396,7 @@ async function openSnapshot(id, who, date) {
       // группируем по категориям
       const byCat = {};
       d.items.forEach(it => { if(!byCat[it.cat]) byCat[it.cat]=[]; byCat[it.cat].push(it); });
-      const stColor = s => s==='Мало'?'var(--red)':s==='Среднее'?'var(--amber)':s==='Норма'?'var(--green)':'var(--text3)';
+      const stColor = s => (s==='Мало'||s==='Ноль на складе')?'var(--red)':s==='Среднее'?'var(--amber)':s==='Норма'?'var(--green)':'var(--text3)';
       let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
         <button class="btn btn-sm" onclick="openHistory()">‹ К истории</button>
         <div style="font-size:13px;color:var(--text2)">${who||''} · ${date||''}</div>
@@ -1389,7 +1436,7 @@ function buildPayload() {
       // сколько докупить до нормы (оптимума); если значение не число — пусто
       const need = (!isNaN(curNum) && okT > curNum) ? +(okT - curNum).toFixed(2) : 0;
       allItems.push({cat, name:it.name, val:s.val||'', unit:s.unit||it.unit,
-        status:statusLabel(getStatus(s.val||'', okT, getThresh(cat,i,'mid'))),
+        status:statusLabel(getStatus(s.val||'', okT, getThresh(cat,i,'mid'), !!s.everFilled)),
         norm: okT, need: need,
         crit:!!s.crit, note:s.note||''});
     });
@@ -1411,18 +1458,29 @@ function needToBuy(cat,i,val) {
   if (isNaN(cur) || ok <= cur) return 0;
   return +(ok - cur).toFixed(2);
 }
-function getStatus(val, ok, mid) {
-  if(val===''||val===null||isNaN(parseFloat(val))) return 'none';
+// everFilled = позицию когда-либо заполняли (есть прошлый остаток или ввели число).
+// Пусто + заполняли раньше → 'zero' (ноль на складе, идёт в закупку).
+// Пусто + не заполняли ни разу → 'none' (не заполнено, в закупку НЕ идёт).
+function getStatus(val, ok, mid, everFilled) {
+  if(val===''||val===null||isNaN(parseFloat(val))) return everFilled ? 'zero' : 'none';
   const n=parseFloat(val);
-  if(n>=ok) return 'ok'; if(n>=mid) return 'mid'; return 'low';
+  if(n<=0) return 'zero';        // напечатанный 0 (или меньше) = ноль на складе
+  if(n>=ok) return 'ok';
+  if(n>=mid) return 'mid';
+  return 'low';
 }
-function statusLabel(s) { return{ok:'Норма',mid:'Среднее',low:'Мало',none:'—'}[s]||'—'; }
+// 'zero' маршрутизируется как 'low' (срочная закупка), отличается только подписью
+function isLowLike(s){ return s==='low' || s==='zero'; }
+function statusLabel(s) { return{ok:'Норма',mid:'Среднее',low:'Мало',zero:'Ноль на складе',none:'Не заполнено'}[s]||'Не заполнено'; }
 function badge(s) {
   if(s==='ok') return'<span class="sbadge s-ok">Норма</span>';
   if(s==='mid') return'<span class="sbadge s-mid">Среднее</span>';
   if(s==='low') return'<span class="sbadge s-low">Мало</span>';
-  return'<span class="sbadge s-none">—</span>';
+  if(s==='zero') return'<span class="sbadge s-low">Ноль</span>';
+  return'<span class="sbadge s-none">Не заполнено</span>';
 }
+// effectiveEverFilled для позиции cat/i
+function everFilledOf(cat,i){ const s=state[cat]&&state[cat][i]; return !!(s&&s.everFilled); }
 function slugCat(cat) { return cat.replace(/[^a-zA-Zа-яА-Я0-9]/g,'_'); }
 function setSyncPill(cls,txt) { const p=document.getElementById('sync-pill'); p.textContent=txt; p.className='sync-pill '+(cls||''); }
 
@@ -1587,7 +1645,7 @@ function loadThreshLocal() {
 function newInv() {
   if(!confirm('Очистить все значения? Пороги сохранятся.')) return;
   const cats=ROLE_CATS[currentRole]||[];
-  cats.forEach(cat=>{ (items[cat]||[]).forEach((_,i)=>{ if(state[cat]&&state[cat][i]){ state[cat][i].val=''; state[cat][i].fromPrev=false; } }); });
+  cats.forEach(cat=>{ (items[cat]||[]).forEach((_,i)=>{ if(state[cat]&&state[cat][i]){ state[cat][i].val=''; state[cat][i].fromPrev=false; state[cat][i].everFilled=false; } }); });
   prevDate='';
   document.getElementById('inv-date').value=new Date().toISOString().split('T')[0];
   cats.forEach(c=>renderTable(c));
@@ -1602,7 +1660,7 @@ function exportCSV() {
   cats.forEach(cat=>{
     (items[cat]||[]).forEach((it,i)=>{
       const s=state[cat]&&state[cat][i]?state[cat][i]:{};
-      const st=statusLabel(getStatus(s.val||'', getThresh(cat,i,'ok'), getThresh(cat,i,'mid')));
+      const st=statusLabel(getStatus(s.val||'', getThresh(cat,i,'ok'), getThresh(cat,i,'mid'), !!s.everFilled));
       csv+=`"${cat}","${it.name}","${s.val||''}","${s.unit||it.unit}","${st}","${s.crit?'Да':'Нет'}","${(s.note||'').replace(/"/g,"'")}"\n`;
     });
   });
