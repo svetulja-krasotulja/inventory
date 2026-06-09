@@ -86,9 +86,9 @@ body{background:var(--bg);color:var(--text);font-family:'Wix Madefor Text',-appl
 .ldot{width:9px;height:9px;border-radius:50%}
 
 /* TABLE */
-.twrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--rl);background:var(--bg3);box-shadow:var(--shadow)}
+.twrap{overflow:visible;border:1px solid var(--border);border-radius:var(--rl);background:var(--bg3);box-shadow:var(--shadow)}
 table{width:100%;border-collapse:collapse;font-size:13px}
-th{background:var(--bg2);padding:11px 12px;text-align:left;font-weight:600;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:.3px}
+th{background:var(--bg2);padding:11px 12px;text-align:left;font-weight:600;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;letter-spacing:.3px;position:sticky;top:var(--thead-top,70px);z-index:5}
 td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;color:var(--text)}
 tr:last-child td{border-bottom:none}
 tr.rc td:first-child{border-left:3px solid var(--red-mid);padding-left:6px}
@@ -147,7 +147,7 @@ tr:hover td{background:#FAFAF8}
 .ed-cats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
 .ed-cat-btn{padding:6px 14px;font-size:12px;border:.5px solid var(--border2);border-radius:20px;background:var(--bg3);color:var(--text2);cursor:pointer;font-family:inherit}
 .ed-cat-btn.active{background:#1D1D1B;color:#fff;border-color:#1D1D1B}
-.ed-table-wrap{border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;background:var(--bg3)}
+.ed-table-wrap{border:1px solid var(--border);border-radius:var(--rl);overflow:visible;background:var(--bg3)}
 .ed-table{width:100%;border-collapse:collapse;font-size:13px}
 .ed-table th{background:var(--bg2);padding:8px 10px;text-align:left;font-weight:500;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border)}
 .ed-table td{padding:5px 8px;border-bottom:.5px solid var(--border);vertical-align:middle}
@@ -306,6 +306,7 @@ tr:hover td{background:#FAFAF8}
 @media(max-width:600px){
   .topbar{padding:12px 14px 4px}.content{padding:12px 14px}.summary{padding:12px 14px 4px;grid-template-columns:1fr 1fr;gap:10px}.tabs{padding:4px 14px 0}.actions{padding:12px 14px}
   th,td{padding:7px 7px;font-size:12px}.role-grid{grid-template-columns:1fr 1fr 1fr;gap:6px}.rc-icon{font-size:18px}.rc-title{font-size:12px}
+  .twrap{overflow-x:auto}th{position:static}
   .brand-logo{height:38px}.brand-tag{font-size:22px}.scard-val{font-size:24px}.scard-ico{width:32px;height:32px}
 }
 @media print{
@@ -319,7 +320,7 @@ tr:hover td{background:#FAFAF8}
   .scard-val{font-size:16px}
   .twrap{border:0.5px solid #C8C6BC;border-radius:4px}
   table{font-size:10px}
-  th{background:#F4F3E9!important;font-size:9px;padding:5px 6px}
+  th{background:#F4F3E9!important;font-size:9px;padding:5px 6px;position:static}
   td{padding:4px 6px}
   .tnum{border:none;background:transparent!important;text-align:right;width:auto}
   .tnum.hl-low{background:#FCEBEB!important;border-radius:3px;padding:2px 4px}
@@ -539,7 +540,7 @@ tr:hover td{background:#FAFAF8}
   <div class="tbar-title">
     <img class="brand-logo" id="brand-logo" alt="BreadVenture">
     <span class="brand-tag">Инвентаризация</span>
-    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v7</span>
+    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v8</span>
   </div>
   <div class="tbar-meta">
     <div class="ml"><label>Дата</label><input type="date" class="mi" id="inv-date" style="width:130px"></div>
@@ -1029,7 +1030,9 @@ function renderEditorTable() {
     <thead><tr><th style="min-width:160px">Название</th><th>Ед.</th><th>Норма</th><th>Среднее</th><th>Мало</th><th>Крит.</th><th style="width:36px"></th></tr></thead>
     <tbody id="ed-tbody"></tbody></table></div>`;
   const tbody = document.getElementById('ed-tbody');
-  its.forEach((it,i) => {
+  const indexed = its.map((it,oi)=>({it,oi}));
+  indexed.sort((a,b)=>(effCrit(editorCat,b.oi)?1:0)-(effCrit(editorCat,a.oi)?1:0)); // критичные — вверх
+  indexed.forEach(({it,oi:i}) => {
     const tr = document.createElement('tr');
     const okV = getThresh(editorCat,i,'ok'), midV = getThresh(editorCat,i,'mid'), lowV = getThresh(editorCat,i,'low');
     const critV = effCrit(editorCat,i);
@@ -1253,6 +1256,7 @@ function setActiveTab(cat) {
     if(cat==='__editor') renderEditorTable();
     if(cat==='__suppliers') renderSuppliers();
   }
+  if (typeof setTheadOffset === 'function') setTheadOffset();
 }
 
 // ==================== SHEETS ====================
@@ -1729,6 +1733,15 @@ loadThreshLocal();
 // URL hardcoded - skip setup overlay, go straight to login
 document.getElementById('setup-overlay').classList.remove('open');
 showLogin();
+
+// Липкая шапка таблицы: отступ сверху = высота верхней панели
+function setTheadOffset() {
+  const tb = document.querySelector('.topbar');
+  if (tb) document.documentElement.style.setProperty('--thead-top', tb.offsetHeight + 'px');
+}
+setTheadOffset();
+window.addEventListener('resize', setTheadOffset);
+window.addEventListener('load', setTheadOffset);
 
 // ==================== SUPPLIERS ====================
 function loadItemsLocal() {
