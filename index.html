@@ -152,6 +152,9 @@ tr:hover td{background:#FAFAF8}
 .ed-table th{background:var(--bg2);padding:8px 10px;text-align:left;font-weight:500;font-size:11px;color:var(--text2);border-bottom:1px solid var(--border)}
 .ed-table td{padding:5px 8px;border-bottom:.5px solid var(--border);vertical-align:middle}
 .ed-table tr:last-child td{border-bottom:none}
+.ed-grip span{cursor:grab;color:var(--text3);font-size:15px;line-height:1;user-select:none;display:inline-block;padding:2px 4px}
+.ed-grip span:active{cursor:grabbing}
+.ed-table tr.drag-over td{box-shadow:inset 0 2px 0 var(--blue)}
 .ed-inp{width:100%;padding:4px 7px;font-size:13px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);font-family:inherit}
 .ed-inp:focus{outline:none;border-color:var(--blue)}
 .ed-num{width:64px;padding:4px 6px;font-size:13px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);text-align:right;font-family:inherit}
@@ -540,7 +543,7 @@ tr:hover td{background:#FAFAF8}
   <div class="tbar-title">
     <img class="brand-logo" id="brand-logo" alt="BreadVenture">
     <span class="brand-tag">Инвентаризация</span>
-    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v9</span>
+    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v10</span>
   </div>
   <div class="tbar-meta">
     <div class="ml"><label>Дата</label><input type="date" class="mi" id="inv-date" style="width:130px"></div>
@@ -1028,17 +1031,17 @@ function renderEditorTable() {
   if (!area) return;
   const its = items[editorCat]||[];
   area.innerHTML = `<div class="ed-table-wrap"><table class="ed-table">
-    <thead><tr><th style="min-width:160px">Название</th><th>Ед.</th><th>Норма</th><th>Среднее</th><th>Мало</th><th>Крит.</th><th style="min-width:150px">Категория</th><th style="width:36px"></th></tr></thead>
+    <thead><tr><th style="width:26px"></th><th style="min-width:160px">Название</th><th>Ед.</th><th>Норма</th><th>Среднее</th><th>Мало</th><th>Крит.</th><th style="min-width:150px">Категория</th><th style="width:36px"></th></tr></thead>
     <tbody id="ed-tbody"></tbody></table></div>`;
   const tbody = document.getElementById('ed-tbody');
   const allCats = ROLE_CATS.manager;
-  const indexed = its.map((it,oi)=>({it,oi}));
-  indexed.sort((a,b)=>(effCrit(editorCat,b.oi)?1:0)-(effCrit(editorCat,a.oi)?1:0)); // критичные — вверх
-  indexed.forEach(({it,oi:i}) => {
+  // порядок — как в списке (ручной), без автосортировки: позволяет перетаскивать и группировать
+  its.forEach((it,i) => {
     const tr = document.createElement('tr');
     const okV = getThresh(editorCat,i,'ok'), midV = getThresh(editorCat,i,'mid'), lowV = getThresh(editorCat,i,'low');
     const critV = effCrit(editorCat,i);
     tr.innerHTML = `
+      <td class="ed-grip"><span draggable="true" ondragstart="edDragStart(event,${i})" title="Перетащи, чтобы переставить">⠿</span></td>
       <td><input class="ed-inp" value="${it.name}" onchange="items['${editorCat}'][${i}].name=this.value"></td>
       <td><select class="ed-sel" onchange="items['${editorCat}'][${i}].unit=this.value">${['кг','г','л','мл','шт','пар','рул','уп'].map(u=>`<option${u===it.unit?' selected':''}>${u}</option>`).join('')}</select></td>
       <td><input type="number" class="ed-num" value="${okV}" step="0.1" onchange="edSetNorm('${editorCat}',${i},'ok',this.value)"></td>
@@ -1047,8 +1050,45 @@ function renderEditorTable() {
       <td><div class="ctog${critV?' on':''}" onclick="edToggleCrit('${editorCat}',${i},this)"></div></td>
       <td><select class="ed-sel" onchange="moveEdRow('${editorCat}',${i},this.value)">${allCats.map(c=>`<option value="${c}"${c===editorCat?' selected':''}>${c}</option>`).join('')}</select></td>
       <td><button class="del-btn" onclick="delEdRow(${i})" title="Удалить">×</button></td>`;
+    tr.ondragover = (e)=>{ e.preventDefault(); tr.classList.add('drag-over'); };
+    tr.ondragleave = ()=> tr.classList.remove('drag-over');
+    tr.ondrop = (e)=>{ e.preventDefault(); tr.classList.remove('drag-over'); edDrop(i); };
     tbody.appendChild(tr);
   });
+}
+
+// ---- Перетаскивание строк в редакторе ----
+let edDragFrom = null;
+function edDragStart(e, i) {
+  edDragFrom = i;
+  e.dataTransfer.effectAllowed = 'move';
+  try { e.dataTransfer.setData('text/plain', String(i)); } catch(_) {}
+}
+function edDrop(to) {
+  const from = edDragFrom; edDragFrom = null;
+  if (from === null || from === undefined || from === to) return;
+  reorderEdRow(editorCat, from, to);
+}
+// Переставляет позицию from→to внутри категории, сохраняя нормы/крит/остаток
+function reorderEdRow(cat, from, to) {
+  const arr = items[cat];
+  if (!arr || from<0 || to<0 || from>=arr.length || to>=arr.length) return;
+  // параллельные массивы state/thresh по индексам
+  const stArr = arr.map((_,i)=> (state[cat] && state[cat][i]) ? state[cat][i] : undefined);
+  const thArr = arr.map((_,i)=> (thresh[cat] && thresh[cat][i]) ? thresh[cat][i] : undefined);
+  const [mIt] = arr.splice(from,1); arr.splice(to,0,mIt);
+  const [mSt] = stArr.splice(from,1); stArr.splice(to,0,mSt);
+  const [mTh] = thArr.splice(from,1); thArr.splice(to,0,mTh);
+  const ns={}, nt={};
+  stArr.forEach((v,i)=>{ if(v!==undefined) ns[i]=v; });
+  thArr.forEach((v,i)=>{ if(v!==undefined) nt[i]=v; });
+  state[cat]=ns; thresh[cat]=nt;
+  saveThreshLocal(); saveCritLocal();
+  try { localStorage.setItem('bv_items_v1', JSON.stringify(items)); } catch(e) {}
+  renderEditorTable();
+  const cats = ROLE_CATS[currentRole] || [];
+  if (cats.includes(cat)) { initState([cat]); renderTable(cat); }
+  setSyncPill('busy','Порядок изменён — нажми «Сохранить списки»');
 }
 
 // Эффективная критичность позиции: override (state) важнее базы (items)
