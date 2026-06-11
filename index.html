@@ -543,7 +543,7 @@ tr:hover td{background:#FAFAF8}
   <div class="tbar-title">
     <img class="brand-logo" id="brand-logo" alt="BreadVenture">
     <span class="brand-tag">Инвентаризация</span>
-    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v12</span>
+    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v14</span>
   </div>
   <div class="tbar-meta">
     <div class="ml"><label>Дата</label><input type="date" class="mi" id="inv-date" style="width:130px"></div>
@@ -566,6 +566,7 @@ tr:hover td{background:#FAFAF8}
   <button class="btn btn-dark mgr-only" id="btn-save" onclick="saveToSheets()" disabled>💾 Сохранить в Sheets</button>
   <button class="btn btn-tg mgr-only" id="btn-tg" onclick="sendToTelegram()" disabled>✈️ Отправить в Telegram</button>
   <button class="btn" onclick="openHistory()">🕐 История</button>
+  <button class="btn mgr-only" onclick="restoreFromLog()" title="Подтянуть последние введённые остатки из истории по всем категориям">↻ Из истории</button>
   <button class="btn mgr-only" onclick="exportPDF()">⬇ PDF</button>
   <button class="btn mgr-only" onclick="window.print()">🖨</button>
   <button class="btn" onclick="newInv()">↺ Новая</button>
@@ -586,6 +587,7 @@ const BV_ICONS = {
 (function(){ const l=document.getElementById('brand-logo'); if(l) l.src=BV_ICONS.LOGO; })();
 // ==================== SUPPLIERS STATE ====================
 let suppliers = [];
+let suppliersDirty = false; // правки поставщиков, ещё не подтверждённые сервером — не затирать фоновой загрузкой
 let supFilterCat = 'Все';
 let supEditItems = [];
 function getSupCats() {
@@ -1796,6 +1798,26 @@ function loadThreshLocal() {
   } catch(e) {}
 }
 
+async function restoreFromLog() {
+  if (currentRole !== 'manager') return;
+  if (!confirm('Подтянуть последние введённые остатки из истории по всем категориям? «Текущие остатки» будут заменены данными из истории.')) return;
+  setSyncPill('busy','↻ Восстанавливаю из истории...');
+  try {
+    const r = await fetch(SCRIPT_URL + '?action=restoreFromLog');
+    const d = await r.json();
+    if (d.status === 'ok') {
+      setSyncPill('ok','✓ Восстановлено позиций с числом: ' + (d.filled||0));
+      await loadFromSheets();
+    } else if (d.status === 'empty') {
+      setSyncPill('err','⚠ В истории нет данных для восстановления');
+    } else {
+      setSyncPill('err','⚠ Не удалось восстановить');
+    }
+  } catch(e) {
+    setSyncPill('err','⚠ Нет связи — восстановление не выполнено');
+  }
+}
+
 function newInv() {
   if(!confirm('Очистить все значения? Пороги сохранятся.')) return;
   const cats=ROLE_CATS[currentRole]||[];
@@ -1912,6 +1934,8 @@ async function loadSuppliersFromSheets() {
   try {
     const r = await fetch(SCRIPT_URL + '?action=getSuppliers');
     const d = await r.json();
+    // если пользователь уже правил поставщиков — не затираем его правки ответом сервера (гонка при загрузке)
+    if (suppliersDirty) return;
     if (d.status === 'ok' && d.suppliers && d.suppliers.length) {
       suppliers = d.suppliers;
       // Update localStorage cache
@@ -1926,6 +1950,7 @@ async function loadSuppliersFromSheets() {
 }
 
 function saveSuppliers() {
+  suppliersDirty = true;
   // Always save to localStorage as cache
   try { localStorage.setItem(SUP_LS, JSON.stringify(suppliers)); } catch(e) {}
   // Sync to Sheets in background
@@ -1933,13 +1958,20 @@ function saveSuppliers() {
 }
 
 async function syncSuppliersToSheets() {
+  setSyncPill('busy','💾 Сохраняю поставщиков...');
   try {
-    await fetch(SCRIPT_URL, {
+    const r = await fetch(SCRIPT_URL, {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: 'action=setSuppliers&data=' + encodeURIComponent(JSON.stringify(suppliers))
     });
-  } catch(e) {}
+    const d = await r.json().catch(() => ({status:'ok'}));
+    if (d.status === 'error') { setSyncPill('err','⚠ Поставщики не сохранились'); return; }
+    suppliersDirty = false; // сервер подтвердил
+    setSyncPill('ok','✓ Поставщики сохранены');
+  } catch(e) {
+    setSyncPill('err','⚠ Нет связи — поставщики не сохранились');
+  }
 }
 
 function renderSuppliers() {
