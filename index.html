@@ -924,6 +924,7 @@ function buildSections(cats) {
   ps.id = 'sec-__purchase'; ps.className = 'content'; ps.style.display = 'none';
   ps.innerHTML = `
     <div id="purchase-plan"></div>
+    <div id="purchase-deferred"></div>
     <div class="psec"><div class="ph">Срочно купить <span class="pcnt ptag-r" id="cnt-low">0</span></div><div class="p-list" id="list-low"></div></div>
     <div class="psec"><div class="ph">Пополнить (среднее) <span class="pcnt ptag-a" id="cnt-mid">0</span></div><div class="p-list" id="list-mid"></div></div>
     <div class="wish-box">
@@ -1275,15 +1276,18 @@ function buildPurchaseList() {
   if(!lEl||!mEl) return;
   lEl.innerHTML=''; mEl.innerHTML='';
   const cats = ROLE_CATS[currentRole]||[];
-  const lows=[], mids=[];
+  const lows=[], mids=[], deferredList=[];
   cats.forEach(cat=>{
     (items[cat]||[]).forEach((it,i)=>{
       const s=state[cat]&&state[cat][i]?state[cat][i]:{};
       const st=getStatus(s.val||'', getThresh(cat,i,'ok'), getThresh(cat,i,'mid'), !!s.everFilled);
+      const needs = isLowLike(st) || st==='mid';
+      if (s.deferred) { if (needs) deferredList.push({it,cat,i,s,urgency:isLowLike(st)?'low':'mid'}); return; }
       if(isLowLike(st)) lows.push({it,cat,i,s});
       if(st==='mid') mids.push({it,cat,i,s});
     });
   });
+  buildDeferredList(deferredList);
   lows.sort((a,b)=>(b.s.crit?1:0)-(a.s.crit?1:0));
   const showSupLinks = currentRole === 'manager';
   if(!lows.length) lEl.innerHTML='<div class="pempty">Всё в норме ✓</div>';
@@ -1317,81 +1321,39 @@ function buildPurchaseList() {
 // ==================== ПЛАН ЗАКУПКИ (менеджер/фаундер) ====================
 function planKey(cat, name){ return cat + '||' + name; }
 
-// Список вариантов поставщика: ВСЕ поставщики (привязанные к позиции — первыми, с пометкой ★)
-function planSupplierOptions(matched, selected){
-  const all = [...new Set(suppliers.map(s=>s.name).filter(Boolean))];
-  const matchedSet = new Set(matched);
-  const ordered = [...matched.filter(n=>all.includes(n)), ...all.filter(n=>!matchedSet.has(n))];
-  if (selected && !ordered.includes(selected)) ordered.unshift(selected); // сохранённый, но удалённый из справочника
-  const opts = ['<option value="">— поставщик —</option>'];
-  ordered.forEach(n=>{
-    const mark = matchedSet.has(n) ? '★ ' : '';
-    opts.push(`<option value="${n.replace(/"/g,'&quot;')}"${n===selected?' selected':''}>${mark}${n}</option>`);
-  });
-  return opts.join('');
-}
-
 function buildPurchasePlan(lows, mids) {
   const wrap = document.getElementById('purchase-plan');
   if (!wrap) return;
   if (currentRole !== 'manager') { wrap.innerHTML = ''; return; } // только менеджер и фаундер
   const need = [...lows.map(x=>({...x,urgency:'low'})), ...mids.map(x=>({...x,urgency:'mid'}))];
-
-  // позиции, добавленные вручную (отмечены в плане, но в need не попали — например, остаток в норме)
-  const needKeys = new Set(need.map(n => planKey(n.cat, n.it.name)));
-  const roleCats = ROLE_CATS[currentRole] || [];
-  const extra = [];
-  Object.keys(purchasePlan).forEach(k => {
-    const p = purchasePlan[k];
-    if (!p || !p.checked || needKeys.has(k)) return;
-    const sep = k.indexOf('||'); if (sep < 0) return;
-    const cat = k.slice(0, sep), name = k.slice(sep + 2);
-    if (!roleCats.includes(cat)) return;
-    const arr = items[cat] || [];
-    const idx = arr.findIndex(x => x.name === name);
-    if (idx < 0) return;
-    const s = (state[cat] && state[cat][idx]) ? state[cat][idx] : {};
-    extra.push({ it: arr[idx], cat, i: idx, s, urgency: 'manual' });
-  });
-
-  const allRows = [...need, ...extra];
-  const addBtn = `<button class="btn btn-sm" onclick="openAddToPlan()">+ Добавить позицию</button>`;
-
-  if (!allRows.length) {
-    wrap.innerHTML = `<div class="psec" style="margin-bottom:14px">
-      <div class="ph" style="justify-content:space-between"><span>📋 План закупки</span></div>
-      <div style="font-size:12px;color:var(--text2);padding:6px 10px 10px">Сейчас всё в норме. Можно добавить позицию в закупку вручную.</div>
-      <div style="padding:0 10px 12px">${addBtn}</div></div><div id="purchase-remaining"></div>`;
-    return;
-  }
+  if (!need.length) { wrap.innerHTML = ''; return; }
 
   let rows = '';
-  allRows.forEach(({it, cat, i, s, urgency}) => {
+  need.forEach(({it, cat, i, s, urgency}) => {
     const key = planKey(cat, it.name);
     const unit = s.unit || it.unit;
     const matched = suppliers.filter(sv => sv.items && sv.items.some(si => si.toLowerCase() === it.name.toLowerCase())).map(sv=>sv.name);
-    if (!purchasePlan[key]) purchasePlan[key] = {checked:false,supplier:'',qty:'',comment:'',delivery:''};
-    const saved = purchasePlan[key];
+    const saved = purchasePlan[key] || {};
     const checked = !!saved.checked;
     const qty = (saved.qty !== undefined && saved.qty !== '') ? saved.qty : (needToBuy(cat,i,s.val)||'');
-    // эффективный поставщик: сохранённый; если пусто — привязанный по умолчанию. И сразу фиксируем в данных (WYSIWYG)
-    let supSel = saved.supplier;
-    if ((supSel === undefined || supSel === '') && matched[0]) { supSel = matched[0]; saved.supplier = supSel; }
-    supSel = supSel || '';
+    const supSel = saved.supplier || (matched[0] || '');
     const comment = saved.comment || '';
     const delivery = saved.delivery || '';
-    const supOptions = planSupplierOptions(matched, supSel);
-    const dot = urgency==='low' ? 'var(--red-mid)' : (urgency==='mid' ? 'var(--blue)' : 'var(--green-mid)');
-    const tag = urgency==='manual' ? ` <span class="ptag" style="background:var(--green-bg);color:var(--green)">добавлено</span>` : '';
+    const supOptions = ['<option value="">— поставщик —</option>']
+      .concat(matched.map(n=>`<option value="${n.replace(/"/g,'&quot;')}"${n===supSel?' selected':''}>${n}</option>`));
+    // если сохранён поставщик не из списка — добавим его
+    if (supSel && !matched.includes(supSel)) supOptions.push(`<option value="${supSel.replace(/"/g,'&quot;')}" selected>${supSel}</option>`);
+    const dot = urgency==='low' ? 'var(--red-mid)' : 'var(--blue)';
     rows += `<div class="planrow" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid var(--line)">
       <input type="checkbox" ${checked?'checked':''} onchange="onPlanToggle('${cat.replace(/'/g,"\\'")}','${it.name.replace(/'/g,"\\'")}',this.checked)" style="width:18px;height:18px;flex:none">
       <span class="pdot" style="background:${dot};flex:none"></span>
-      <div style="flex:1 1 160px;min-width:140px"><span style="font-weight:500">${it.name}</span> <span class="pcat">${cat}</span>${tag}<div style="font-size:11px;color:var(--text3)">сейчас: ${s.val||'—'} ${unit}</div></div>
+      <div style="flex:1 1 160px;min-width:140px"><span style="font-weight:500">${it.name}</span> <span class="pcat">${cat}</span><div style="font-size:11px;color:var(--text3)">сейчас: ${s.val||'—'} ${unit}</div></div>
       <input type="number" inputmode="decimal" value="${qty}" placeholder="кол-во" onchange="onPlanQty('${cat.replace(/'/g,"\\'")}','${it.name.replace(/'/g,"\\'")}',this.value)" style="width:74px;flex:none;text-align:right">
       <span style="font-size:12px;color:var(--text2);flex:none">${unit}</span>
-      <select onchange="onPlanSupplier('${cat.replace(/'/g,"\\'")}','${it.name.replace(/'/g,"\\'")}',this.value)" style="flex:0 1 150px;min-width:120px">${supOptions}</select>
+      <select onchange="onPlanSupplier('${cat.replace(/'/g,"\\'")}','${it.name.replace(/'/g,"\\'")}',this.value)" style="flex:0 1 150px;min-width:120px">${supOptions.join('')}</select>
       <label style="font-size:11px;color:var(--text3);flex:none">поставка<br><input type="date" value="${delivery}" onchange="onPlanDelivery('${cat.replace(/'/g,"\\'")}','${it.name.replace(/'/g,"\\'")}',this.value)" style="font-size:12px"></label>
       <input type="text" value="${comment.replace(/"/g,'&quot;')}" placeholder="комментарий" onchange="onPlanComment('${cat.replace(/'/g,"\\'")}','${it.name.replace(/'/g,"\\'")}',this.value)" style="flex:1 1 160px;min-width:120px">
+      <button class="btn btn-sm" title="Отложить — убрать из закупки до возврата" onclick="setDeferred('${cat.replace(/'/g,"\\'")}',${i},true)" style="flex:none">⏸ Отложить</button>
     </div>`;
   });
 
@@ -1399,17 +1361,14 @@ function buildPurchasePlan(lows, mids) {
     <div class="ph" style="justify-content:space-between">
       <span>📋 План закупки <span class="pcnt" id="plan-cnt" style="background:var(--blue);color:#fff">0</span></span>
     </div>
-    <div style="font-size:12px;color:var(--text2);padding:6px 10px 10px">Отметь галочкой, что идёт в закупку, укажи поставщика, кол-во и комментарий. Можно добавить позиции вручную кнопкой ниже. Затем подтверди — список уйдёт в Telegram (общий чат, тебе и менеджеру).</div>
+    <div style="font-size:12px;color:var(--text2);padding:6px 10px 10px">Отметь галочкой, что идёт в закупку, укажи поставщика, кол-во и комментарий. Затем подтверди — список уйдёт в Telegram (общий чат, тебе и менеджеру).</div>
     <div>${rows}</div>
     <div style="padding:12px 10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <button class="btn btn-dark" onclick="confirmPurchasePlan()">✅ Подтвердить и отправить закупку</button>
-      ${addBtn}
       <button class="btn btn-sm" onclick="clearPurchasePlan()">Очистить отметки</button>
     </div>
-  </div>
-  <div id="purchase-remaining"></div>`;
+  </div>`;
   updatePlanCount();
-  savePurchasePlan(); // зафиксировать поставщиков по умолчанию
 }
 
 function updatePlanCount(){
@@ -1424,71 +1383,31 @@ function onPlanQty(cat,name,v){ const k=ensurePlan(cat,name); purchasePlan[k].qt
 function onPlanComment(cat,name,v){ const k=ensurePlan(cat,name); purchasePlan[k].comment=v; savePurchasePlan(); }
 function onPlanDelivery(cat,name,v){ const k=ensurePlan(cat,name); purchasePlan[k].delivery=v; savePurchasePlan(); }
 
-// ---- Добавление позиции в закупку вручную (только из существующего списка) ----
-let addPlanSearch = '';
-function openAddToPlan(){
-  if (currentRole !== 'manager') return;
-  addPlanSearch = '';
-  let ov = document.getElementById('add-plan-ov');
-  if (!ov) {
-    ov = document.createElement('div');
-    ov.id = 'add-plan-ov';
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:0';
-    ov.onclick = e => { if (e.target === ov) closeAddToPlan(); };
-    ov.innerHTML = `<div style="background:var(--bg,#fff);width:100%;max-width:560px;max-height:82vh;border-radius:16px 16px 0 0;display:flex;flex-direction:column;overflow:hidden">
-      <div style="padding:14px 16px 8px;border-bottom:1px solid var(--line)">
-        <div style="font-weight:600;font-size:15px;margin-bottom:8px">Добавить позицию в закупку</div>
-        <input id="add-plan-search" type="text" placeholder="Поиск по названию..." oninput="addPlanFilter(this.value)" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px">
-      </div>
-      <div id="add-plan-list" style="overflow:auto;padding:6px 10px;flex:1"></div>
-      <div style="padding:12px 16px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px">
-        <button class="btn btn-dark" onclick="closeAddToPlan()">Готово</button>
-      </div>
-    </div>`;
-    document.body.appendChild(ov);
-  }
-  ov.style.display = 'flex';
-  const si = document.getElementById('add-plan-search'); if (si) si.value = '';
-  renderAddPlanList();
-}
-function closeAddToPlan(){ const ov=document.getElementById('add-plan-ov'); if(ov) ov.style.display='none'; buildPurchaseList(); }
-function addPlanFilter(v){ addPlanSearch = (v||'').toLowerCase().trim(); renderAddPlanList(); }
-
-// позиции, доступные для добавления: те, что ещё НЕ в плане закупки (в норме / не заполнены ребятами)
-function addablePlanItems(){
-  const cats = ROLE_CATS[currentRole] || [];
-  const res = [];
-  cats.forEach(cat => {
-    (items[cat]||[]).forEach((it,i) => {
-      const s = (state[cat] && state[cat][i]) ? state[cat][i] : {};
-      const st = getStatus(s.val||'', getThresh(cat,i,'ok'), getThresh(cat,i,'mid'), !!s.everFilled);
-      if (isLowLike(st) || st === 'mid') return; // уже в плане как «нужно купить»
-      res.push({ it, cat, i, s });
-    });
-  });
-  return res;
-}
-function renderAddPlanList(){
-  const box = document.getElementById('add-plan-list'); if (!box) return;
-  let list = addablePlanItems();
-  if (addPlanSearch) list = list.filter(x => x.it.name.toLowerCase().includes(addPlanSearch));
-  if (!list.length) { box.innerHTML = '<div style="padding:18px;text-align:center;color:var(--text3);font-size:13px">Ничего не найдено</div>'; return; }
-  box.innerHTML = list.map(({it,cat,i,s}) => {
-    const key = planKey(cat, it.name);
-    const checked = !!(purchasePlan[key] && purchasePlan[key].checked);
-    const unit = s.unit || it.unit;
-    return `<label style="display:flex;align-items:center;gap:10px;padding:9px 8px;border-bottom:1px solid var(--line);cursor:pointer">
-      <input type="checkbox" ${checked?'checked':''} onchange="toggleAddPlan('${cat.replace(/'/g,"\\'")}','${it.name.replace(/'/g,"\\'")}',this.checked)" style="width:18px;height:18px;flex:none">
-      <span style="flex:1;font-size:14px">${it.name} <span class="pcat">${cat}</span></span>
-      <span style="font-size:11px;color:var(--text3);flex:none">сейчас: ${s.val||'—'} ${unit}</span>
-    </label>`;
-  }).join('');
-}
-function toggleAddPlan(cat,name,v){ const k=ensurePlan(cat,name); purchasePlan[k].checked=v; savePurchasePlan(); updatePlanCount(); }
-
 function clearPurchasePlan(){
   if(!confirm('Снять все отметки плана закупки?')) return;
   purchasePlan = {}; savePurchasePlan(); buildPurchaseList();
+}
+
+function buildDeferredList(list) {
+  const wrap = document.getElementById('purchase-deferred');
+  if (!wrap) return;
+  if (currentRole !== 'manager' || !list.length) { wrap.innerHTML = ''; return; }
+  let rows = '';
+  list.forEach(({it, cat, i, s, urgency}) => {
+    const unit = s.unit || it.unit;
+    const dot = urgency==='low' ? 'var(--red-mid)' : 'var(--blue)';
+    rows += `<div class="pitem">
+      <div class="pdot" style="background:${dot}"></div>
+      <div class="pname">${it.name}<span class="pcat">${cat}</span></div>
+      <div class="pcurr">сейчас: ${s.val||'—'} ${unit}</div>
+      <button class="btn btn-sm" onclick="setDeferred('${cat.replace(/'/g,"\\'")}',${i},false)" style="flex:none">↩ Вернуть</button>
+    </div>`;
+  });
+  wrap.innerHTML = `<details class="psec" style="margin-bottom:14px">
+    <summary style="cursor:pointer;font-weight:500;padding:6px 0;list-style:revert">⏸ Отложенные <span class="pcnt" style="background:var(--text3);color:#fff">${list.length}</span></summary>
+    <div style="font-size:12px;color:var(--text2);padding:4px 0 8px">Эти позиции не показываются в «Срочно купить» и в плане закупки. Нажми «Вернуть», когда снова понадобится.</div>
+    <div class="p-list">${rows}</div>
+  </details>`;
 }
 
 async function confirmPurchasePlan(){
@@ -1509,93 +1428,16 @@ async function confirmPurchasePlan(){
   if (!out.length) { alert('Отметь галочкой хотя бы одну позицию для закупки.'); return; }
   if (!confirm('Отправить запланированную закупку (' + out.length + ' поз.) в Telegram — в общий чат, тебе и менеджеру?')) return;
   setSyncPill('busy','📤 Отправляю закупку...');
-  const topDate = (document.getElementById('inv-date')||{}).value || new Date().toISOString().split('T')[0];
-  const message = buildPurchaseMessage(out, topDate, currentName||'');
-  const payload = { date: topDate, by: currentName||'', items: out, message };
+  const payload = { date: (document.getElementById('inv-date')||{}).value || new Date().toISOString().split('T')[0], by: currentName||'', items: out };
   try {
     const r = await fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
       body:'action=purchasePlan&data='+encodeURIComponent(JSON.stringify(payload)) });
     const d = await r.json().catch(()=>({status:'ok'}));
     if (d.status === 'error') { setSyncPill('err','⚠ Не отправилось: '+(d.message||'')); return; }
     setSyncPill('ok','✓ Закупка отправлена в Telegram');
-    renderRemainingPurchase(out); // показать, что осталось закупить
   } catch(e) {
     setSyncPill('err','⚠ Нет связи — закупка не отправлена');
   }
-}
-
-// дата YYYY-MM-DD -> ДД.ММ.ГГГГ
-function fmtRuDate(d){
-  if(!d) return '';
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
-  if(m) return `${m[3]}.${m[2]}.${m[1]}`;
-  return d;
-}
-// Текст сообщения: сначала по дате доставки, внутри — по поставщикам
-function buildPurchaseMessage(out, topDate, by){
-  const byDate = {}; // date -> { supplier -> [lines] }
-  out.forEach(it=>{
-    const dkey = it.delivery || topDate || '';
-    const sup = (it.supplier && it.supplier.trim()) ? it.supplier.trim() : 'Без поставщика';
-    if(!byDate[dkey]) byDate[dkey] = {};
-    if(!byDate[dkey][sup]) byDate[dkey][sup] = [];
-    const qty = (it.qty===''||it.qty==null) ? '' : ` — ${it.qty} ${it.unit||''}`.trimEnd();
-    const note = it.comment ? `  (${it.comment})` : '';
-    byDate[dkey][sup].push(`   • ${it.name}${qty}${note}`);
-  });
-  const dates = Object.keys(byDate).sort(); // YYYY-MM-DD сортируется как строка
-  const blocks = [];
-  dates.forEach(d=>{
-    const lines = [];
-    lines.push(`🚚 Доставка запланирована на ${fmtRuDate(d)||'—'}`);
-    const sups = Object.keys(byDate[d]).sort((a,b)=> a==='Без поставщика'?1 : b==='Без поставщика'?-1 : a.localeCompare(b,'ru'));
-    sups.forEach(sup=>{
-      lines.push('');
-      lines.push(`🏪 ${sup}`);
-      lines.push(byDate[d][sup].join('\n'));
-    });
-    blocks.push(lines.join('\n'));
-  });
-  return `📋 Запланирована закупка\n\n${blocks.join('\n\n')}\n\nоформил(а): ${by||'—'}`;
-}
-
-// Панель «Осталось закупить»: позиции, которые ещё нужны, но не вошли в отправленную закупку
-function renderRemainingPurchase(sentItems){
-  const wrap = document.getElementById('purchase-remaining');
-  if (!wrap) return;
-  const sentKeys = new Set(sentItems.map(it=>planKey(it.cat, it.name)));
-  const cats = ROLE_CATS[currentRole]||[];
-  const remaining = [];
-  cats.forEach(cat=>{
-    (items[cat]||[]).forEach((it,i)=>{
-      const s = state[cat]&&state[cat][i]?state[cat][i]:{};
-      const st = getStatus(s.val||'', getThresh(cat,i,'ok'), getThresh(cat,i,'mid'), !!s.everFilled);
-      if (!(isLowLike(st) || st==='mid')) return;        // нужно купить
-      if (sentKeys.has(planKey(cat, it.name))) return;    // уже отправлено
-      const unit = s.unit || it.unit;
-      const need = needToBuy(cat,i,s.val);
-      remaining.push({ name: it.name, cat, val: s.val||'—', unit, need, crit: isLowLike(st) });
-    });
-  });
-  if (!remaining.length){
-    wrap.innerHTML = `<div class="psec" style="margin-bottom:14px;border:1px solid var(--green-bg);background:#F7FBF1">
-      <div class="ph" style="color:var(--green)">✓ Отправлено ${sentItems.length} поз. — больше закупать нечего</div></div>`;
-    wrap.scrollIntoView({behavior:'smooth', block:'nearest'});
-    return;
-  }
-  remaining.sort((a,b)=>(b.crit?1:0)-(a.crit?1:0));
-  const rows = remaining.map(r=>`<div class="pitem">
-    <div class="pdot" style="background:${r.crit?'var(--red-mid)':'var(--blue)'}"></div>
-    <div class="pname">${r.name}<span class="pcat">${r.cat}</span></div>
-    <div class="pcurr">сейчас: ${r.val} ${r.unit}${r.need>0?` · <b style="color:${r.crit?'var(--red)':'var(--amber)'}">докупить ${r.need} ${r.unit}</b>`:''}</div>
-    ${r.crit?'<span class="ptag ptag-r">Критично</span>':'<span class="ptag ptag-a">Среднее</span>'}
-  </div>`).join('');
-  wrap.innerHTML = `<div class="psec" style="margin-bottom:14px;border:1px solid var(--line)">
-    <div class="ph" style="justify-content:space-between"><span>📌 Осталось закупить <span class="pcnt ptag-r">${remaining.length}</span></span></div>
-    <div style="font-size:12px;color:var(--text2);padding:6px 10px 8px">Отправлено ${sentItems.length} поз. Эти позиции ещё нужны, но не вошли в закупку:</div>
-    <div class="p-list">${rows}</div>
-  </div>`;
-  wrap.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
 // ==================== SUMMARY + PROGRESS ====================
@@ -1749,6 +1591,7 @@ async function loadFromSheets() {
         loadThreshLocal();
         loadCritLocal();
         loadNotesLocal();
+        loadDeferredLocal();
         cats.forEach(c => renderTable(c));
         if (currentRole === 'manager') renderEditorTable();
         updateSummary(); buildPurchaseList();
@@ -1974,21 +1817,54 @@ function loadNotesLocal() {
   } catch(e) {}
 }
 
+function saveDeferredLocal() {
+  const m = {};
+  Object.keys(state).forEach(cat => {
+    m[cat] = {};
+    Object.keys(state[cat]).forEach(i => { if (state[cat][i] && state[cat][i].deferred) m[cat][i] = true; });
+  });
+  try { localStorage.setItem('bv_deferred_v1', JSON.stringify(m)); } catch(e) {}
+}
+function loadDeferredLocal() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('bv_deferred_v1') || 'null');
+    if (saved) {
+      Object.keys(saved).forEach(cat => {
+        const nc = normalizeCat(cat);
+        if (!state[nc]) return;
+        Object.keys(saved[cat]).forEach(i => { if (state[nc][i]) state[nc][i].deferred = !!saved[cat][i]; });
+      });
+    }
+  } catch(e) {}
+}
+// Отложить / вернуть закупку (свойство позиции, синхронизируется как крит)
+function setDeferred(cat, i, v) {
+  if (currentRole !== 'manager') return;
+  if (!state[cat]) state[cat] = {};
+  if (!state[cat][i]) state[cat][i] = {val:'', unit:'', note:''};
+  state[cat][i].deferred = v;
+  saveDeferredLocal();
+  syncSettingsToSheets();
+  buildPurchaseList();
+  updateSummary();
+}
+
 async function syncSettingsToSheets() {
   if (!SCRIPT_URL) return;
   try {
-    const critMap = {}, notesMap = {};
+    const critMap = {}, notesMap = {}, deferredMap = {};
     Object.keys(state).forEach(cat => {
-      critMap[cat] = {}; notesMap[cat] = {};
+      critMap[cat] = {}; notesMap[cat] = {}; deferredMap[cat] = {};
       Object.keys(state[cat]).forEach(i => {
         if (state[cat][i] && state[cat][i].crit !== undefined) critMap[cat][i] = state[cat][i].crit;
         if (state[cat][i] && state[cat][i].note) notesMap[cat][i] = state[cat][i].note;
+        if (state[cat][i] && state[cat][i].deferred) deferredMap[cat][i] = true;
       });
     });
     await fetch(SCRIPT_URL, {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: 'action=setSettings&data=' + encodeURIComponent(JSON.stringify({thresh, crit: critMap, notes: notesMap}))
+      body: 'action=setSettings&data=' + encodeURIComponent(JSON.stringify({thresh, crit: critMap, notes: notesMap, deferred: deferredMap}))
     });
   } catch(e) {}
 }
@@ -2051,6 +1927,18 @@ async function loadSettingsFromSheets() {
           });
         });
         try { localStorage.setItem('bv_notes_v1', JSON.stringify(d.notes)); } catch(e) {}
+      }
+      // Load deferred (отложенные закупки)
+      if (d.deferred && Object.keys(d.deferred).length) {
+        Object.keys(d.deferred).forEach(cat => {
+          const nc = normalizeCat(cat);
+          if (!state[nc]) state[nc] = {};
+          Object.keys(d.deferred[cat]).forEach(i => {
+            if (!state[nc][i]) state[nc][i] = {val:'', unit:'', note:''};
+            state[nc][i].deferred = !!d.deferred[cat][i];
+          });
+        });
+        try { localStorage.setItem('bv_deferred_v1', JSON.stringify(d.deferred)); } catch(e) {}
       }
       // Рендер делает вызывающий код (loadFromSheets), здесь не рендерим
     }
