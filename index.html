@@ -543,7 +543,7 @@ tr:hover td{background:#FAFAF8}
   <div class="tbar-title">
     <img class="brand-logo" id="brand-logo" alt="BreadVenture">
     <span class="brand-tag">Инвентаризация</span>
-    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v14</span>
+    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v16</span>
   </div>
   <div class="tbar-meta">
     <div class="ml"><label>Дата</label><input type="date" class="mi" id="inv-date" style="width:130px"></div>
@@ -588,6 +588,9 @@ const BV_ICONS = {
 // ==================== SUPPLIERS STATE ====================
 let suppliers = [];
 let suppliersDirty = false; // правки поставщиков, ещё не подтверждённые сервером — не затирать фоновой загрузкой
+let purchasePlan = {}; // план закупки: ключ "категория||название" → {checked, supplier, qty, comment}
+try { purchasePlan = JSON.parse(localStorage.getItem('bv_purchase_plan_v1')||'{}'); } catch(e) { purchasePlan = {}; }
+function savePurchasePlan(){ try { localStorage.setItem('bv_purchase_plan_v1', JSON.stringify(purchasePlan)); } catch(e){} }
 let supFilterCat = 'Все';
 let supEditItems = [];
 function getSupCats() {
@@ -920,6 +923,7 @@ function buildSections(cats) {
   const ps = document.createElement('div');
   ps.id = 'sec-__purchase'; ps.className = 'content'; ps.style.display = 'none';
   ps.innerHTML = `
+    <div id="purchase-plan"></div>
     <div class="psec"><div class="ph">Срочно купить <span class="pcnt ptag-r" id="cnt-low">0</span></div><div class="p-list" id="list-low"></div></div>
     <div class="psec"><div class="ph">Пополнить (среднее) <span class="pcnt ptag-a" id="cnt-mid">0</span></div><div class="p-list" id="list-mid"></div></div>
     <div class="wish-box">
@@ -1307,6 +1311,106 @@ function buildPurchaseList() {
   document.getElementById('cnt-low').textContent=lows.length;
   document.getElementById('cnt-mid').textContent=mids.length;
   buildPurchaseBySupplier(lows, mids);
+  buildPurchasePlan(lows, mids);
+}
+
+// ==================== ПЛАН ЗАКУПКИ (менеджер/фаундер) ====================
+function planKey(cat, name){ return cat + '||' + name; }
+
+function buildPurchasePlan(lows, mids) {
+  const wrap = document.getElementById('purchase-plan');
+  if (!wrap) return;
+  if (currentRole !== 'manager') { wrap.innerHTML = ''; return; } // только менеджер и фаундер
+  const need = [...lows.map(x=>({...x,urgency:'low'})), ...mids.map(x=>({...x,urgency:'mid'}))];
+  if (!need.length) { wrap.innerHTML = ''; return; }
+
+  let rows = '';
+  need.forEach(({it, cat, i, s, urgency}) => {
+    const key = planKey(cat, it.name);
+    const unit = s.unit || it.unit;
+    const matched = suppliers.filter(sv => sv.items && sv.items.some(si => si.toLowerCase() === it.name.toLowerCase())).map(sv=>sv.name);
+    const saved = purchasePlan[key] || {};
+    const checked = !!saved.checked;
+    const qty = (saved.qty !== undefined && saved.qty !== '') ? saved.qty : (needToBuy(cat,i,s.val)||'');
+    const supSel = saved.supplier || (matched[0] || '');
+    const comment = saved.comment || '';
+    const delivery = saved.delivery || '';
+    const supOptions = ['<option value="">— поставщик —</option>']
+      .concat(matched.map(n=>`<option value="${n.replace(/"/g,'&quot;')}"${n===supSel?' selected':''}>${n}</option>`));
+    // если сохранён поставщик не из списка — добавим его
+    if (supSel && !matched.includes(supSel)) supOptions.push(`<option value="${supSel.replace(/"/g,'&quot;')}" selected>${supSel}</option>`);
+    const dot = urgency==='low' ? 'var(--red-mid)' : 'var(--blue)';
+    rows += `<div class="planrow" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid var(--line)">
+      <input type="checkbox" ${checked?'checked':''} onchange="onPlanToggle('${cat.replace(/'/g,"\\'")}','${it.name.replace(/'/g,"\\'")}',this.checked)" style="width:18px;height:18px;flex:none">
+      <span class="pdot" style="background:${dot};flex:none"></span>
+      <div style="flex:1 1 160px;min-width:140px"><span style="font-weight:500">${it.name}</span> <span class="pcat">${cat}</span><div style="font-size:11px;color:var(--text3)">сейчас: ${s.val||'—'} ${unit}</div></div>
+      <input type="number" inputmode="decimal" value="${qty}" placeholder="кол-во" onchange="onPlanQty('${cat.replace(/'/g,"\\'")}','${it.name.replace(/'/g,"\\'")}',this.value)" style="width:74px;flex:none;text-align:right">
+      <span style="font-size:12px;color:var(--text2);flex:none">${unit}</span>
+      <select onchange="onPlanSupplier('${cat.replace(/'/g,"\\'")}','${it.name.replace(/'/g,"\\'")}',this.value)" style="flex:0 1 150px;min-width:120px">${supOptions.join('')}</select>
+      <label style="font-size:11px;color:var(--text3);flex:none">поставка<br><input type="date" value="${delivery}" onchange="onPlanDelivery('${cat.replace(/'/g,"\\'")}','${it.name.replace(/'/g,"\\'")}',this.value)" style="font-size:12px"></label>
+      <input type="text" value="${comment.replace(/"/g,'&quot;')}" placeholder="комментарий" onchange="onPlanComment('${cat.replace(/'/g,"\\'")}','${it.name.replace(/'/g,"\\'")}',this.value)" style="flex:1 1 160px;min-width:120px">
+    </div>`;
+  });
+
+  wrap.innerHTML = `<div class="psec" style="margin-bottom:14px">
+    <div class="ph" style="justify-content:space-between">
+      <span>📋 План закупки <span class="pcnt" id="plan-cnt" style="background:var(--blue);color:#fff">0</span></span>
+    </div>
+    <div style="font-size:12px;color:var(--text2);padding:6px 10px 10px">Отметь галочкой, что идёт в закупку, укажи поставщика, кол-во и комментарий. Затем подтверди — список уйдёт в Telegram (общий чат, тебе и менеджеру).</div>
+    <div>${rows}</div>
+    <div style="padding:12px 10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-dark" onclick="confirmPurchasePlan()">✅ Подтвердить и отправить закупку</button>
+      <button class="btn btn-sm" onclick="clearPurchasePlan()">Очистить отметки</button>
+    </div>
+  </div>`;
+  updatePlanCount();
+}
+
+function updatePlanCount(){
+  const el = document.getElementById('plan-cnt'); if(!el) return;
+  let n = 0; Object.keys(purchasePlan).forEach(k=>{ if(purchasePlan[k] && purchasePlan[k].checked) n++; });
+  el.textContent = n;
+}
+function ensurePlan(cat,name){ const k=planKey(cat,name); if(!purchasePlan[k]) purchasePlan[k]={checked:false,supplier:'',qty:'',comment:'',delivery:''}; return k; }
+function onPlanToggle(cat,name,v){ const k=ensurePlan(cat,name); purchasePlan[k].checked=v; savePurchasePlan(); updatePlanCount(); }
+function onPlanSupplier(cat,name,v){ const k=ensurePlan(cat,name); purchasePlan[k].supplier=v; savePurchasePlan(); }
+function onPlanQty(cat,name,v){ const k=ensurePlan(cat,name); purchasePlan[k].qty=v; savePurchasePlan(); }
+function onPlanComment(cat,name,v){ const k=ensurePlan(cat,name); purchasePlan[k].comment=v; savePurchasePlan(); }
+function onPlanDelivery(cat,name,v){ const k=ensurePlan(cat,name); purchasePlan[k].delivery=v; savePurchasePlan(); }
+
+function clearPurchasePlan(){
+  if(!confirm('Снять все отметки плана закупки?')) return;
+  purchasePlan = {}; savePurchasePlan(); buildPurchaseList();
+}
+
+async function confirmPurchasePlan(){
+  if (currentRole !== 'manager') return;
+  // собираем отмеченные позиции из текущего списка потребности
+  const cats = ROLE_CATS[currentRole]||[];
+  const out = [];
+  cats.forEach(cat=>{
+    (items[cat]||[]).forEach((it,i)=>{
+      const k = planKey(cat, it.name);
+      const p = purchasePlan[k];
+      if (!p || !p.checked) return;
+      const s = state[cat]&&state[cat][i]?state[cat][i]:{};
+      const unit = s.unit || it.unit;
+      out.push({ name: it.name, cat, qty: (p.qty===''||p.qty===undefined)?'' : p.qty, unit, supplier: p.supplier||'', comment: p.comment||'', delivery: p.delivery||'' });
+    });
+  });
+  if (!out.length) { alert('Отметь галочкой хотя бы одну позицию для закупки.'); return; }
+  if (!confirm('Отправить запланированную закупку (' + out.length + ' поз.) в Telegram — в общий чат, тебе и менеджеру?')) return;
+  setSyncPill('busy','📤 Отправляю закупку...');
+  const payload = { date: (document.getElementById('inv-date')||{}).value || new Date().toISOString().split('T')[0], by: currentName||'', items: out };
+  try {
+    const r = await fetch(SCRIPT_URL, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'action=purchasePlan&data='+encodeURIComponent(JSON.stringify(payload)) });
+    const d = await r.json().catch(()=>({status:'ok'}));
+    if (d.status === 'error') { setSyncPill('err','⚠ Не отправилось: '+(d.message||'')); return; }
+    setSyncPill('ok','✓ Закупка отправлена в Telegram');
+  } catch(e) {
+    setSyncPill('err','⚠ Нет связи — закупка не отправлена');
+  }
 }
 
 // ==================== SUMMARY + PROGRESS ====================
