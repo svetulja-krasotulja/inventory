@@ -543,7 +543,7 @@ tr:hover td{background:#FAFAF8}
   <div class="tbar-title">
     <img class="brand-logo" id="brand-logo" alt="BreadVenture">
     <span class="brand-tag">Инвентаризация</span>
-    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v17</span>
+    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v19</span>
   </div>
   <div class="tbar-meta">
     <div class="ml"><label>Дата</label><input type="date" class="mi" id="inv-date" style="width:130px"></div>
@@ -589,6 +589,7 @@ const BV_ICONS = {
 let suppliers = [];
 let suppliersDirty = false; // правки поставщиков, ещё не подтверждённые сервером — не затирать фоновой загрузкой
 let purchasePlan = {}; // план закупки: ключ "категория||название" → {checked, supplier, qty, comment}
+let planItemsCache = []; // позиции, показанные в плане сейчас: {key, cat, name, supplier}
 try { purchasePlan = JSON.parse(localStorage.getItem('bv_purchase_plan_v1')||'{}'); } catch(e) { purchasePlan = {}; }
 function savePurchasePlan(){ try { localStorage.setItem('bv_purchase_plan_v1', JSON.stringify(purchasePlan)); } catch(e){} }
 let supFilterCat = 'Все';
@@ -735,17 +736,18 @@ const DEFAULT_ITEMS = {
     {name:"Чай зелёный",unit:"уп",ok:1,mid:0.5,low:0,crit:false},
     {name:"Чай фруктовый",unit:"уп",ok:1,mid:0.5,low:0,crit:false},
   ],
+  "Общие ингредиенты": [],
   "Общие расходники": []
 };
 
 // Role → visible categories
 const ROLE_CATS = {
-  baker:   ["Ингредиенты пекарские","Расходники пекарские","Общие расходники"],
-  barista: ["Расходники бара","Ингредиенты бара","Общие расходники"],
-  manager: ["Ингредиенты пекарские","Расходники пекарские","Расходники бара","Ингредиенты бара","Общие расходники"]
+  baker:   ["Ингредиенты пекарские","Расходники пекарские","Общие ингредиенты","Общие расходники"],
+  barista: ["Расходники бара","Ингредиенты бара","Общие ингредиенты","Общие расходники"],
+  manager: ["Ингредиенты пекарские","Расходники пекарские","Расходники бара","Ингредиенты бара","Общие ингредиенты","Общие расходники"]
 };
 const CAT_ICONS = {
-  "Ингредиенты пекарские":"🌾","Расходники пекарские":"🧤","Расходники бара":"☕","Ингредиенты бара":"🍵","Общие расходники":"📦"
+  "Ингредиенты пекарские":"🌾","Расходники пекарские":"🧤","Расходники бара":"☕","Ингредиенты бара":"🍵","Общие ингредиенты":"🫙","Общие расходники":"📦"
 };
 // Миграция старых имён категорий → новые (данные в Sheets могли сохраниться под старыми)
 const CAT_RENAME = {"Ингредиенты пекарни":"Ингредиенты пекарские","Расходники пекарни":"Расходники пекарские"};
@@ -1329,6 +1331,8 @@ function buildPurchasePlan(lows, mids) {
   if (!need.length) { wrap.innerHTML = ''; return; }
 
   let rows = '';
+  planItemsCache = [];
+  const planSuppliers = [];
   need.forEach(({it, cat, i, s, urgency}) => {
     const key = planKey(cat, it.name);
     const unit = s.unit || it.unit;
@@ -1339,6 +1343,8 @@ function buildPurchasePlan(lows, mids) {
     const supSel = saved.supplier || (matched[0] || '');
     const comment = saved.comment || '';
     const delivery = saved.delivery || '';
+    planItemsCache.push({key, cat, name: it.name, supplier: supSel});
+    if (supSel && !planSuppliers.includes(supSel)) planSuppliers.push(supSel);
     const supOptions = ['<option value="">— поставщик —</option>']
       .concat(matched.map(n=>`<option value="${n.replace(/"/g,'&quot;')}"${n===supSel?' selected':''}>${n}</option>`));
     // если сохранён поставщик не из списка — добавим его
@@ -1357,11 +1363,18 @@ function buildPurchasePlan(lows, mids) {
     </div>`;
   });
 
+  const bulkSupOpts = ['<option value="">— поставщик —</option>'].concat(planSuppliers.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`)).join('');
   wrap.innerHTML = `<div class="psec" style="margin-bottom:14px">
     <div class="ph" style="justify-content:space-between">
       <span>📋 План закупки <span class="pcnt" id="plan-cnt" style="background:var(--blue);color:#fff">0</span></span>
     </div>
     <div style="font-size:12px;color:var(--text2);padding:6px 10px 10px">Отметь галочкой, что идёт в закупку, укажи поставщика, кол-во и комментарий. Затем подтверди — список уйдёт в Telegram (общий чат, тебе и менеджеру).</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:0 10px 12px">
+      <span style="font-size:12px;color:var(--text2)">🚚 Дата поставки сразу для поставщика:</span>
+      <select id="bulk-sup" style="flex:0 1 160px;min-width:130px">${bulkSupOpts}</select>
+      <input type="date" id="bulk-date" style="font-size:12px">
+      <button class="btn btn-sm" onclick="applySupplierDelivery()">Применить ко всем</button>
+    </div>
     <div>${rows}</div>
     <div style="padding:12px 10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <button class="btn btn-dark" onclick="confirmPurchasePlan()">✅ Подтвердить и отправить закупку</button>
@@ -1382,6 +1395,26 @@ function onPlanSupplier(cat,name,v){ const k=ensurePlan(cat,name); purchasePlan[
 function onPlanQty(cat,name,v){ const k=ensurePlan(cat,name); purchasePlan[k].qty=v; savePurchasePlan(); }
 function onPlanComment(cat,name,v){ const k=ensurePlan(cat,name); purchasePlan[k].comment=v; savePurchasePlan(); }
 function onPlanDelivery(cat,name,v){ const k=ensurePlan(cat,name); purchasePlan[k].delivery=v; savePurchasePlan(); }
+
+// Проставить дату поставки сразу всем позициям выбранного поставщика
+function applySupplierDelivery(){
+  const sup = (document.getElementById('bulk-sup')||{}).value || '';
+  const date = (document.getElementById('bulk-date')||{}).value || '';
+  if (!sup) { alert('Выбери поставщика.'); return; }
+  if (!date) { alert('Укажи дату поставки.'); return; }
+  let n = 0;
+  planItemsCache.forEach(({key, cat, name, supplier}) => {
+    if (supplier !== sup) return;
+    if (!purchasePlan[key]) purchasePlan[key] = {checked:false, supplier:'', qty:'', comment:'', delivery:''};
+    purchasePlan[key].supplier = sup;
+    purchasePlan[key].delivery = date;
+    purchasePlan[key].checked = true; // дата поставки = позиция идёт в закупку
+    n++;
+  });
+  savePurchasePlan();
+  buildPurchaseList();
+  setSyncPill('ok','✓ Дата поставки проставлена: ' + n + ' поз.');
+}
 
 function clearPurchasePlan(){
   if(!confirm('Снять все отметки плана закупки?')) return;
