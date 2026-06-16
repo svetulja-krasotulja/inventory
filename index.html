@@ -62,8 +62,8 @@ body{background:var(--bg);color:var(--text);font-family:'Wix Madefor Text',-appl
 .v-green{color:var(--green-mid)}.v-amber{color:var(--amber-mid)}.v-red{color:var(--red-mid)}.v-gray{color:var(--text3)}
 
 /* TABS */
-.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);background:transparent;padding:4px 28px 0;overflow-x:auto;margin-top:6px}
-.tab{font-size:13px;padding:11px 16px;cursor:pointer;border:none;background:transparent;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;font-family:inherit;font-weight:600}
+.tabs{display:flex;flex-wrap:wrap;gap:2px 4px;border-bottom:1px solid var(--border);background:transparent;padding:4px 28px 0;margin-top:6px}
+.tab{font-size:13px;padding:10px 13px;cursor:pointer;border:none;background:transparent;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;font-family:inherit;font-weight:600}
 .tab.active{color:var(--blue);border-bottom-color:var(--blue)}
 .tab:hover:not(.active){color:var(--text)}
 
@@ -543,7 +543,7 @@ tr:hover td{background:#FAFAF8}
   <div class="tbar-title">
     <img class="brand-logo" id="brand-logo" alt="BreadVenture">
     <span class="brand-tag">Инвентаризация</span>
-    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v19</span>
+    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v20</span>
   </div>
   <div class="tbar-meta">
     <div class="ml"><label>Дата</label><input type="date" class="mi" id="inv-date" style="width:130px"></div>
