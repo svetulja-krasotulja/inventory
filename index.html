@@ -543,7 +543,7 @@ tr:hover td{background:#FAFAF8}
   <div class="tbar-title">
     <img class="brand-logo" id="brand-logo" alt="BreadVenture">
     <span class="brand-tag">Инвентаризация</span>
-    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v20</span>
+    <span style="font-size:11px;color:var(--text3);align-self:flex-end;margin-bottom:4px;opacity:.7">v22</span>
   </div>
   <div class="tbar-meta">
     <div class="ml"><label>Дата</label><input type="date" class="mi" id="inv-date" style="width:130px"></div>
@@ -562,7 +562,8 @@ tr:hover td{background:#FAFAF8}
 <div id="all-sections"></div>
 
 <div class="actions" id="action-bar">
-  <button class="btn btn-dark staff-only" id="btn-report" onclick="sendReport()" disabled>📤 Отправить отчёт</button>
+  <button class="btn btn-dark staff-only" id="btn-staff-save" onclick="staffSave()" disabled>💾 Сохранить</button>
+  <button class="btn btn-tg staff-only" id="btn-report" onclick="sendReport()" disabled>📤 Отправить отчёт</button>
   <button class="btn btn-dark mgr-only" id="btn-save" onclick="saveToSheets()" disabled>💾 Сохранить в Sheets</button>
   <button class="btn btn-tg mgr-only" id="btn-tg" onclick="sendToTelegram()" disabled>✈️ Отправить в Telegram</button>
   <button class="btn" onclick="openHistory()">🕐 История</button>
@@ -925,10 +926,10 @@ function buildSections(cats) {
   const ps = document.createElement('div');
   ps.id = 'sec-__purchase'; ps.className = 'content'; ps.style.display = 'none';
   ps.innerHTML = `
-    <div id="purchase-plan"></div>
-    <div id="purchase-deferred"></div>
     <div class="psec"><div class="ph">Срочно купить <span class="pcnt ptag-r" id="cnt-low">0</span></div><div class="p-list" id="list-low"></div></div>
     <div class="psec"><div class="ph">Пополнить (среднее) <span class="pcnt ptag-a" id="cnt-mid">0</span></div><div class="p-list" id="list-mid"></div></div>
+    <div id="purchase-plan"></div>
+    <div id="purchase-deferred"></div>
     <div class="wish-box">
       <div class="wish-title">✨ Запросы менеджеру</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Напиши что нужно купить или заказать — это уйдёт менеджеру вместе с отчётом при сохранении в Sheets.</div>
@@ -954,7 +955,8 @@ function buildTableHTML(cat) {
       <li><strong>Статус</strong> (Норма / Среднее / Мало) проставляется автоматически — считать ничего не нужно.</li>
       <li><strong>Крит.</strong> (красная полоса слева) — это позиции, которые нельзя доводить до нуля. Их пороги задаёт менеджер.</li>
       <li>На вкладке <strong>«Закупки»</strong> видно, что заканчивается, и <strong>сколько докупить до нормы</strong>. Там же поле <strong>«Запросы менеджеру»</strong> — напишите, если что-то нужно дополнительно.</li>
-      <li>Когда всё заполнили — нажмите <strong>«Отправить отчёт»</strong>. Он сразу сохранится и уйдёт менеджеру. Это всё, что нужно сделать.</li>`;
+      <li>Переключать вкладки можно спокойно — <strong>данные не теряются</strong>. Чтобы закрепить их в таблице, нажмите <strong>«💾 Сохранить»</strong> (отчёт при этом НЕ отправляется — можно жать сколько угодно).</li>
+      <li>Когда всё заполнили — <strong>один раз</strong> в конце нажмите <strong>«📤 Отправить отчёт»</strong>. Он сохранится и уйдёт менеджеру. Промежуточные отчёты слать не нужно.</li>`;
   return `<div class="instr">
     <div class="instr-h" onclick="this.nextElementSibling.classList.toggle('open');this.querySelector('.arr').textContent=this.nextElementSibling.classList.contains('open')?'▲':'▼'">
       ℹ️ Инструкция <span class="arr">▼</span></div>
@@ -1509,6 +1511,7 @@ function updateProgress() {
   const bs = document.getElementById('btn-save'); if (bs) bs.disabled = false;
   const bt = document.getElementById('btn-tg'); if (bt) bt.disabled = false;
   const br = document.getElementById('btn-report'); if (br) br.disabled = false;
+  const bss = document.getElementById('btn-staff-save'); if (bss) bss.disabled = false;
 }
 
 // ==================== TABS ====================
@@ -2689,7 +2692,24 @@ async function confirmComplete() {
 }
 
 // Одна кнопка для пекаря/баристы: сохранить в Sheets + отправить в Telegram
+async function staffSave() {
+  const btn = document.getElementById('btn-staff-save');
+  if (btn) btn.disabled = true;
+  await saveToSheets();
+  setSyncPill('ok', '✓ Сохранено. Данные не потеряются — можно спокойно переключать вкладки');
+  if (btn) btn.disabled = false;
+}
+
 async function sendReport() {
+  // защита от лавины промежуточных отчётов
+  const dateKey = (document.getElementById('inv-date')||{}).value || '';
+  let sent = null;
+  try { sent = JSON.parse(localStorage.getItem('bv_report_sent')||'null'); } catch(e){}
+  if (sent && sent.date === dateKey) {
+    if (!confirm('Сегодня отчёт уже отправляли (в ' + sent.time + '). Данные и так сохраняются кнопкой «Сохранить». Точно отправить отчёт ещё раз?')) return;
+  } else {
+    if (!confirm('Отправить отчёт менеджеру в Telegram?\n\nОбычно это делают ОДИН раз — в конце инвентаризации. Чтобы просто сохранить данные (без отчёта), используйте кнопку «Сохранить» — при переключении вкладок ничего не теряется.')) return;
+  }
   const btn = document.getElementById('btn-report');
   if (btn) btn.disabled = true;
   setSyncPill('busy', '📤 Отправляю отчёт...');
@@ -2697,6 +2717,7 @@ async function sendReport() {
     await saveToSheets();
     await sendToTelegram();
     setSyncPill('ok', '✅ Отчёт сохранён и отправлен');
+    try { localStorage.setItem('bv_report_sent', JSON.stringify({date: dateKey, time: new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})})); } catch(e){}
   } catch(e) {
     setSyncPill('err', '⚠ ' + e.message);
   }
